@@ -1,0 +1,1188 @@
+-- [FUN COMMANDS SCRIPT] - Phần 1/2
+-- COPY phần này trước và chạy trong executor
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Tạo GUI thông báo
+local NotificationGUI = Instance.new("ScreenGui")
+NotificationGUI.Name = "FunCommandsNotify"
+NotificationGUI.Parent = Player.PlayerGui
+NotificationGUI.ResetOnSpawn = false
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(0, 350, 0, 70)
+TextLabel.Position = UDim2.new(0.5, -175, 0.1, 0)
+TextLabel.AnchorPoint = Vector2.new(0.5, 0)
+TextLabel.BackgroundTransparency = 0.6
+TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.TextSize = 20
+TextLabel.TextWrapped = true
+TextLabel.Text = "Fun Commands Đã Tải! Gõ ;help"
+TextLabel.Visible = false
+TextLabel.Parent = NotificationGUI
+
+-- Biến toàn cục
+local ActiveTweens = {}
+local ActiveConnections = {}
+local ActiveParts = {}
+local CurrentAnimation = nil
+
+-- Hàm hiển thị thông báo
+local function Notify(Message)
+    TextLabel.Text = Message
+    TextLabel.Visible = true
+    task.delay(3, function()
+        TextLabel.Visible = false
+    end
+    )
+end
+
+-- Hàm dừng mọi thứ
+local function StopAll()
+    -- Dừng tweens
+    for _, Tween in pairs(ActiveTweens) do
+        pcall(function() Tween:Cancel() end)
+    end
+    ActiveTweens = {}
+    
+    -- Ngắt kết nối
+    for _, Connection in pairs(ActiveConnections) do
+        pcall(function() Connection:Disconnect() end)
+    end
+    ActiveConnections = {}
+    
+    -- Xóa parts đã tạo
+    for _, Part in pairs(ActiveParts) do
+        pcall(function() Part:Destroy() end)
+    end
+    ActiveParts = {}
+    
+    -- Reset thuộc tính
+    Humanoid.AutoRotate = true
+    Humanoid.PlatformStand = false
+    workspace.Gravity = 196.2
+    
+    -- Xóa các BodyMovers
+    for _, Child in pairs(HumanoidRootPart:GetChildren()) do
+        if Child:IsA("BodyVelocity") or Child:IsA("BodyAngularVelocity") or Child:IsA("BodyForce") then
+            pcall(function() Child:Destroy() end)
+        end
+    end
+    
+    HumanoidRootPart.Anchored = false
+    Humanoid.WalkSpeed = 16
+    Humanoid.JumpPower = 50
+    
+    -- Reset parts
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            Part.Transparency = 0
+            Part.Color = Color3.fromRGB(255, 255, 255)
+            Part.Material = Enum.Material.Plastic
+            
+            -- Xóa hiệu ứng
+            for _, Effect in pairs(Part:GetChildren()) do
+                if Effect:IsA("Fire") or Effect:IsA("Smoke") or Effect:IsA("Sparkles") then
+                    pcall(function() Effect:Destroy() end)
+                end
+            end
+        end
+    end
+    
+    -- Hiện lại head nếu bị ẩn
+    local Head = Character:FindFirstChild("Head")
+    if Head then
+        Head.Transparency = 0
+    end
+    
+    -- Reset kích thước
+    HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            Part.Size = Part:GetAttribute("OriginalSize") or Part.Size
+        end
+    end
+    
+    CurrentAnimation = nil
+    Notify("Đã Dừng Tất Cả!")
+end
+
+-- Lưu kích thước gốc
+for _, Part in pairs(Character:GetChildren()) do
+    if Part:IsA("BasePart") then
+        Part:SetAttribute("OriginalSize", Part.Size)
+    end
+end
+
+-- Danh sách lệnh
+local Commands = {
+    [";help"] = "Hiện danh sách lệnh này",
+    [";stop"] = "Dừng mọi hiệu ứng",
+    [";spin"] = "Quay tròn - ;spin [tốc độ]",
+    [";dance"] = "Nhảy điệu xoay vòng",
+    [";panic"] = "Chạy hoảng loạn tại chỗ",
+    [";float"] = "Bay lơ lửng",
+    [";disco"] = "Đổi màu disco",
+    [";giant"] = "Phóng to toàn thân",
+    [";tiny"] = "Thu nhỏ toàn thân",
+    [";headless"] = "Biến mất cái đầu",
+    [";jitter"] = "Rung lắc điên cuồng",
+    [";lay"] = "Nằm dài ra đất",
+    [";sit"] = "Ngồi xuống",
+    [";party"] = "Tổ chức party!",
+    [";moonwalk"] = "Đi moonwalk",
+    [";sleep"] = "Ngủ và ngáy",
+    [";statue"] = "Hóa thành tượng",
+    [";fire"] = "Bốc cháy (5 giây)",
+    [";smoke"] = "Phun khói (5 giây)",
+    [";sparkles"] = "Tỏa sáng lấp lánh (5 giây)",
+    [";rocket"] = "Phóng lên như tên lửa",
+    [";anchor"] = "Đóng neo / Thả neo",
+    [";grav"] = "Chỉnh trọng lực - ;grav [số]",
+    [";invis"] = "Tàng hình",
+    [";vis"] = "Hiện hình",
+    [";yeet"] = "Tự ném bản thân",
+    [";fling"] = "Tung bay tứ phía",
+    [";worm"] = "Di chuyển như con sâu",
+    [";snake"] = "Bò như rắn",
+    [";swim"] = "Bơi trong không trung",
+    [";wave"] = "Vẫy tay",
+    [";salute"] = "Chào kiểu quân đội",
+    [";boxing"] = "Đấm bốc",
+    [";kick"] = "Đá",
+    [";pushup"] = "Chống đẩy",
+    [";jump"] = "Nhảy liên tục",
+    [";crazy"] = "Chuyển động điên cuồng",
+    [";magic"] = "Phép thuật",
+    [";ghost"] = "Hóa thành ma",
+    [";volleyball"] = "Chơi bóng chuyền",
+    [";basketball"] = "Chơi bóng rổ",
+    [";superhero"] = "Tư thế siêu anh hùng",
+    [";zombie"] = "Đi như zombie",
+    [";robot"] = "Đi như robot",
+    [";crawl"] = "Bò",
+}
+
+-- Animation functions
+local Animations = {}
+
+-- Spin animation
+Animations.Spin = function(Speed)
+    Speed = Speed or 5
+    Humanoid.AutoRotate = false
+    local BV = Instance.new("BodyAngularVelocity")
+    BV.AngularVelocity = Vector3.new(0, Speed * 10, 0)
+    BV.MaxTorque = Vector3.new(0, math.huge, 0)
+    BV.Parent = HumanoidRootPart
+    table.insert(ActiveParts, BV)
+    
+    return function()
+        if BV.Parent then
+            BV:Destroy()
+        end
+        Humanoid.AutoRotate = true
+    end
+end
+
+-- Dance animation
+Animations.Dance = function()
+    local DanceConn
+    local startTime = tick()
+    
+    DanceConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        local angle = math.sin(timePassed * 5) * 0.5
+        
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * CFrame.Angles(0, angle, 0)
+        
+        -- Nhấc tay theo nhịp
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if LeftArm and RightArm then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.new(0, math.sin(timePassed * 8) * 0.2, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.new(0, math.sin(timePassed * 8 + math.pi) * 0.2, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, DanceConn)
+    
+    return function()
+        if DanceConn then
+            DanceConn:Disconnect()
+        end
+    end
+end
+
+-- Float animation
+Animations.Float = function()
+    workspace.Gravity = 20
+    local FloatForce = Instance.new("BodyVelocity")
+    FloatForce.Velocity = Vector3.new(0, 5, 0)
+    FloatForce.MaxForce = Vector3.new(0, math.huge, 0)
+    FloatForce.Parent = HumanoidRootPart
+    table.insert(ActiveParts, FloatForce)
+    
+    return function()
+        if FloatForce.Parent then
+            FloatForce:Destroy()
+        end
+        workspace.Gravity = 196.2
+    end
+end
+
+-- Disco animation
+Animations.Disco = function()
+    local DiscoConn
+    DiscoConn = RunService.Heartbeat:Connect(function()
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+            end
+        end
+    end)
+    
+    table.insert(ActiveConnections, DiscoConn)
+    
+    return function()
+        if DiscoConn then
+            DiscoConn:Disconnect()
+        end
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Color = Color3.fromRGB(255, 255, 255)
+            end
+        end
+    end
+end
+
+-- Giant animation
+Animations.Giant = function()
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            local originalSize = Part:GetAttribute("OriginalSize") or Part.Size
+            Part.Size = originalSize * 2
+        end
+    end
+    
+    return function()
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                local originalSize = Part:GetAttribute("OriginalSize") or Part.Size
+                Part.Size = originalSize
+            end
+        end
+    end
+end
+
+-- Tiny animation
+Animations.Tiny = function()
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            local originalSize = Part:GetAttribute("OriginalSize") or Part.Size
+            Part.Size = originalSize * 0.5
+        end
+    end
+    
+    return function()
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                local originalSize = Part:GetAttribute("OriginalSize") or Part.Size
+                Part.Size = originalSize
+            end
+        end
+    end
+end
+
+-- Headless animation
+Animations.Headless = function()
+    local Head = Character:FindFirstChild("Head")
+    if Head then
+        Head.Transparency = 1
+        local Face = Head:FindFirstChild("Face")
+        if Face then
+            Face:Destroy()
+        end
+    end
+    
+    return function()
+        local Head = Character:FindFirstChild("Head")
+        if Head then
+            Head.Transparency = 0
+        end
+    end
+end
+
+-- Jitter animation
+Animations.Jitter = function()
+    local JitterConn
+    JitterConn = RunService.Heartbeat:Connect(function()
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(math.random(-10, 10)/20, 0, math.random(-10, 10)/20)
+    end)
+    
+    table.insert(ActiveConnections, JitterConn)
+    
+    return function()
+        if JitterConn then
+            JitterConn:Disconnect()
+        end
+    end
+end
+
+-- Lay animation
+Animations.Lay = function()
+    Humanoid.PlatformStand = true
+    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * CFrame.Angles(-math.pi/2, 0, 0)
+    
+    return function()
+        Humanoid.PlatformStand = false
+    end
+end
+
+-- Sit animation
+Animations.Sit = function()
+    Humanoid.Sit = true
+    
+    return function()
+        Humanoid.Sit = false
+    end
+end
+
+-- Fire animation
+Animations.Fire = function()
+    local Fire = Instance.new("Fire")
+    Fire.Size = 15
+    Fire.Heat = 10
+    Fire.Parent = HumanoidRootPart
+    table.insert(ActiveParts, Fire)
+    
+    return function()
+        if Fire.Parent then
+            Fire:Destroy()
+        end
+    end
+end
+
+-- Smoke animation
+Animations.Smoke = function()
+    local Smoke = Instance.new("Smoke")
+    Smoke.Size = 20
+    Smoke.Opacity = 0.5
+    Smoke.Parent = HumanoidRootPart
+    table.insert(ActiveParts, Smoke)
+    
+    return function()
+        if Smoke.Parent then
+            Smoke:Destroy()
+        end
+    end
+end
+
+-- Sparkles animation
+Animations.Sparkles = function()
+    local Sparkles = Instance.new("Sparkles")
+    Sparkles.SparkleColor = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+    Sparkles.Parent = HumanoidRootPart
+    table.insert(ActiveParts, Sparkles)
+    
+    return function()
+        if Sparkles.Parent then
+            Sparkles:Destroy()
+        end
+    end
+end
+
+-- Rocket animation
+Animations.Rocket = function()
+    local Boost = Instance.new("BodyVelocity")
+    Boost.Velocity = Vector3.new(0, 100, 0)
+    Boost.MaxForce = Vector3.new(0, math.huge, 0)
+    Boost.Parent = HumanoidRootPart
+    table.insert(ActiveParts, Boost)
+    
+    -- Thêm hiệu ứng lửa
+    local Fire = Instance.new("Fire")
+    Fire.Size = 25
+    Fire.Heat = 25
+    Fire.SecondaryColor = Color3.fromRGB(255, 255, 0)
+    Fire.Color = Color3.fromRGB(255, 0, 0)
+    Fire.Parent = HumanoidRootPart
+    table.insert(ActiveParts, Fire)
+    
+    return function()
+        if Boost.Parent then
+            Boost:Destroy()
+        end
+        if Fire.Parent then
+            Fire:Destroy()
+        end
+    end
+end
+
+-- Invis animation
+Animations.Invis = function()
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            Part.Transparency = 1
+        end
+    end
+    
+    return function()
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Transparency = 0
+            end
+        end
+    end
+end
+
+-- Yeet animation
+Animations.Yeet = function()
+    HumanoidRootPart.Velocity = HumanoidRootPart.CFrame.LookVector * 100 + Vector3.new(0, 100, 0)
+    
+    return function() end
+end
+
+-- Fling animation
+Animations.Fling = function()
+    HumanoidRootPart.Velocity = Vector3.new(
+        math.random(-500, 500),
+        math.random(-500, 500),
+        math.random(-500, 500)
+    )
+    
+    return function() end
+end
+
+-- Worm animation
+Animations.Worm = function()
+    Humanoid.PlatformStand = true
+    local WormConn
+    local startTime = tick()
+    
+    WormConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.Angles(math.sin(timePassed * 5) * 0.2, 0, 0) *
+            CFrame.new(0, 0, math.sin(timePassed * 5) * 0.5)
+    end)
+    
+    table.insert(ActiveConnections, WormConn)
+    
+    return function()
+        if WormConn then
+            WormConn:Disconnect()
+        end
+        Humanoid.PlatformStand = false
+    end
+end
+
+-- Snake animation
+Animations.Snake = function()
+    Humanoid.WalkSpeed = 30
+    Humanoid.JumpPower = 0
+    
+    local SnakeConn
+    local startTime = tick()
+    
+    SnakeConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.Angles(0, 0, math.sin(timePassed * 10) * 0.1)
+    end)
+    
+    table.insert(ActiveConnections, SnakeConn)
+    
+    return function()
+        if SnakeConn then
+            SnakeConn:Disconnect()
+        end
+        Humanoid.WalkSpeed = 16
+        Humanoid.JumpPower = 50
+    end
+end
+
+-- Swim animation
+Animations.Swim = function()
+    workspace.Gravity = 10
+    local SwimForce = Instance.new("BodyVelocity")
+    SwimForce.Velocity = Vector3.new(0, 3, 0)
+    SwimForce.MaxForce = Vector3.new(0, math.huge, 0)
+    SwimForce.Parent = HumanoidRootPart
+    table.insert(ActiveParts, SwimForce)
+    
+    local SwimConn
+    local startTime = tick()
+    
+    SwimConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Động tác bơi
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if LeftArm and RightArm then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(math.sin(timePassed * 4) * 0.5, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 4 + math.pi) * 0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, SwimConn)
+    
+    return function()
+        if SwimConn then
+            SwimConn:Disconnect()
+        end
+        if SwimForce.Parent then
+            SwimForce:Destroy()
+        end
+        workspace.Gravity = 196.2
+    end
+end
+
+-- Wave animation
+Animations.Wave = function()
+    local WaveConn
+    local startTime = tick()
+    
+    WaveConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if RightArm then
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 5) * 0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, WaveConn)
+    
+    return function()
+        if WaveConn then
+            WaveConn:Disconnect()
+        end
+    end
+end
+
+-- Salute animation
+Animations.Salute = function()
+    local SaluteConn
+    local startTime = tick()
+    
+    SaluteConn = RunService.Heartbeat:Connect(function()
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if RightArm then
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(-0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, SaluteConn)
+    
+    return function()
+        if SaluteConn then
+            SaluteConn:Disconnect()
+        end
+    end
+end
+
+-- Boxing animation
+Animations.Boxing = function()
+    local BoxingConn
+    local startTime = tick()
+    
+    BoxingConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if LeftArm and RightArm then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.new(math.sin(timePassed * 5) * 0.5, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.new(math.sin(timePassed * 5 + math.pi) * 0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, BoxingConn)
+    
+    return function()
+        if BoxingConn then
+            BoxingConn:Disconnect()
+        end
+    end
+end
+
+-- Kick animation
+Animations.Kick = function()
+    local KickConn
+    local startTime = tick()
+    
+    KickConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        local RightLeg = Character:FindFirstChild("Right Leg") or Character:FindFirstChild("RightFoot")
+        
+        if RightLeg then
+            RightLeg.CFrame = RightLeg.CFrame * CFrame.Angles(math.sin(timePassed * 3) * 0.7, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, KickConn)
+    
+    return function()
+        if KickConn then
+            KickConn:Disconnect()
+        end
+    end
+end
+
+-- Pushup animation
+Animations.Pushup = function()
+    Humanoid.PlatformStand = true
+    local PushupConn
+    local startTime = tick()
+    
+    PushupConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(0, math.sin(timePassed * 3) * 0.3, 0)
+    end)
+    
+    table.insert(ActiveConnections, PushupConn)
+    
+    return function()
+        if PushupConn then
+            PushupConn:Disconnect()
+        end
+        Humanoid.PlatformStand = false
+    end
+end
+
+-- Jump animation
+Animations.Jump = function()
+    local JumpConn
+    JumpConn = RunService.Heartbeat:Connect(function()
+        Humanoid.Jump = true
+        task.wait(0.5)
+    end)
+    
+    table.insert(ActiveConnections, JumpConn)
+    
+    return function()
+        if JumpConn then
+            JumpConn:Disconnect()
+        end
+    end
+end
+
+-- Crazy animation
+Animations.Crazy = function()
+    local CrazyConn
+    local startTime = tick()
+    
+    CrazyConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Xoay người
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.Angles(0, math.rad(timePassed * 360), 0)
+        
+        -- Di chuyển tay chân
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        local LeftLeg = Character:FindFirstChild("Left Leg") or Character:FindFirstChild("LeftFoot")
+        local RightLeg = Character:FindFirstChild("Right Leg") or Character:FindFirstChild("RightFoot")
+        
+        if LeftArm and RightArm and LeftLeg and RightLeg then
+          LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(math.sin(timePassed * 8) * 0.5, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 8 + math.pi) * 0.5, 0, 0)
+            LeftLeg.CFrame = LeftLeg.CFrame * CFrame.Angles(math.sin(timePassed * 8 + math.pi/2) * 0.5, 0, 0)
+            RightLeg.CFrame = RightLeg.CFrame * CFrame.Angles(math.sin(timePassed * 8 + 3*math.pi/2) * 0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, CrazyConn)
+    
+    return function()
+        if CrazyConn then
+            CrazyConn:Disconnect()
+        end
+    end
+end
+
+-- Magic animation
+Animations.Magic = function()
+    local MagicConn
+    local startTime = tick()
+    
+    MagicConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Hiệu ứng màu sắc
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Color = Color3.fromHSV((timePassed * 0.5) % 1, 1, 1)
+            end
+        end
+        
+        -- Hiệu ứng bay
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(0, math.sin(timePassed * 2) * 0.1, 0)
+    end)
+    
+    table.insert(ActiveConnections, MagicConn)
+    
+    return function()
+        if MagicConn then
+            MagicConn:Disconnect()
+        end
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Color = Color3.fromRGB(255, 255, 255)
+            end
+        end
+    end
+end
+
+-- Ghost animation
+Animations.Ghost = function()
+    for _, Part in pairs(Character:GetChildren()) do
+        if Part:IsA("BasePart") then
+            Part.Transparency = 0.7
+            Part.Material = Enum.Material.Glass
+        end
+    end
+    
+    local GhostConn
+    local startTime = tick()
+    
+    GhostConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(0, math.sin(timePassed * 2) * 0.1, 0)
+    end)
+    
+    table.insert(ActiveConnections, GhostConn)
+    
+    return function()
+        if GhostConn then
+            GhostConn:Disconnect()
+        end
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Transparency = 0
+                Part.Material = Enum.Material.Plastic
+            end
+        end
+    end
+end
+
+-- Volleyball animation
+Animations.Volleyball = function()
+    local VolleyballConn
+    local startTime = tick()
+    
+    VolleyballConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Động tác đánh bóng
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if RightArm then
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 3) * 0.7, 0, 0)
+        end
+        
+        -- Nhảy theo nhịp
+        if math.sin(timePassed * 3) > 0.9 then
+            Humanoid.Jump = true
+        end
+    end)
+    
+    table.insert(ActiveConnections, VolleyballConn)
+    
+    return function()
+        if VolleyballConn then
+            VolleyballConn:Disconnect()
+        end
+    end
+end
+
+-- Basketball animation
+Animations.Basketball = function()
+    local BasketballConn
+    local startTime = tick()
+    
+    BasketballConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Động tác ném bóng
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if RightArm then
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 2) * 0.5, 0, 0)
+        end
+        
+        -- Nhảy ném
+        if math.sin(timePassed * 2) > 0.8 then
+            Humanoid.Jump = true
+        end
+    end)
+    
+    table.insert(ActiveConnections, BasketballConn)
+    
+    return function()
+        if BasketballConn then
+            BasketballConn:Disconnect()
+        end
+    end
+end
+
+-- Superhero animation
+Animations.Superhero = function()
+    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
+    
+    local SuperheroConn
+    local startTime = tick()
+    
+    SuperheroConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Đứng trên không
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(0, math.sin(timePassed * 2) * 0.1, 0)
+        
+        -- Tư thế siêu anh hùng
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if LeftArm and RightArm then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(-0.5, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(-0.5, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, SuperheroConn)
+    
+    return function()
+        if SuperheroConn then
+            SuperheroConn:Disconnect()
+        end
+    end
+end
+
+-- Zombie animation
+Animations.Zombie = function()
+    Humanoid.WalkSpeed = 8
+    
+    local ZombieConn
+    local startTime = tick()
+    
+    ZombieConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Đi như zombie
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        
+        if LeftArm and RightArm then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(math.sin(timePassed * 2) * 0.3, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 2 + math.pi) * 0.3, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, ZombieConn)
+    
+    return function()
+        if ZombieConn then
+            ZombieConn:Disconnect()
+        end
+        Humanoid.WalkSpeed = 16
+    end
+end
+
+-- Robot animation
+Animations.Robot = function()
+    Humanoid.WalkSpeed = 12
+    
+    local RobotConn
+    local startTime = tick()
+    
+    RobotConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Đi như robot
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        local LeftLeg = Character:FindFirstChild("Left Leg") or Character:FindFirstChild("LeftFoot")
+        local RightLeg = Character:FindFirstChild("Right Leg") or Character:FindFirstChild("RightFoot")
+        
+        if LeftArm and RightArm and LeftLeg and RightLeg then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(math.sin(timePassed * 4) * 0.2, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 4 + math.pi) * 0.2, 0, 0)
+            LeftLeg.CFrame = LeftLeg.CFrame * CFrame.Angles(math.sin(timePassed * 4 + math.pi) * 0.2, 0, 0)
+            RightLeg.CFrame = RightLeg.CFrame * CFrame.Angles(math.sin(timePassed * 4) * 0.2, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, RobotConn)
+    
+    return function()
+        if RobotConn then
+            RobotConn:Disconnect()
+        end
+        Humanoid.WalkSpeed = 16
+    end
+end
+
+-- Crawl animation
+Animations.Crawl = function()
+    Humanoid.WalkSpeed = 6
+    Humanoid.PlatformStand = true
+    
+    local CrawlConn
+    local startTime = tick()
+    
+    CrawlConn = RunService.Heartbeat:Connect(function()
+        local timePassed = tick() - startTime
+        
+        -- Bò
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * 
+            CFrame.new(0, -1.5, 0) *
+            CFrame.Angles(-math.pi/2, 0, 0)
+        
+        -- Di chuyển tay chân khi bò
+        local LeftArm = Character:FindFirstChild("Left Arm") or Character:FindFirstChild("LeftHand")
+        local RightArm = Character:FindFirstChild("Right Arm") or Character:FindFirstChild("RightHand")
+        local LeftLeg = Character:FindFirstChild("Left Leg") or Character:FindFirstChild("LeftFoot")
+        local RightLeg = Character:FindFirstChild("Right Leg") or Character:FindFirstChild("RightFoot")
+        
+        if LeftArm and RightArm and LeftLeg and RightLeg then
+            LeftArm.CFrame = LeftArm.CFrame * CFrame.Angles(math.sin(timePassed * 4) * 0.3, 0, 0)
+            RightArm.CFrame = RightArm.CFrame * CFrame.Angles(math.sin(timePassed * 4 + math.pi) * 0.3, 0, 0)
+            LeftLeg.CFrame = LeftLeg.CFrame * CFrame.Angles(math.sin(timePassed * 4 + math.pi) * 0.3, 0, 0)
+            RightLeg.CFrame = RightLeg.CFrame * CFrame.Angles(math.sin(timePassed * 4) * 0.3, 0, 0)
+        end
+    end)
+    
+    table.insert(ActiveConnections, CrawlConn)
+    
+    return function()
+        if CrawlConn then
+            CrawlConn:Disconnect()
+        end
+        Humanoid.WalkSpeed = 16
+        Humanoid.PlatformStand = false
+    end
+end
+
+-- Xử lý chat commands
+Player.Chatted:Connect(function(Message)
+    local Args = string.split(string.lower(Message), " ")
+    local Command = Args[1]
+    
+    if Command == ";help" then
+        Notify("===== DANH SÁCH LỆNH =====")
+        for i = 1, 3 do
+            task.wait(0.5)
+            for Cmd, Desc in pairs(Commands) do
+                print(Cmd .. "  -->  " .. Desc)
+            end
+        end
+        Notify("Xem F9 Console để xem đầy đủ!")
+        return
+    elseif Command == ";stop" then
+        StopAll()
+        return
+    end
+    
+    -- Dừng animation hiện tại trước khi chạy animation mới
+    if CurrentAnimation then
+        pcall(CurrentAnimation)
+        CurrentAnimation = nil
+    end
+    
+    -- Xử lý các lệnh khác
+    if Command == ";spin" then
+        local Speed = tonumber(Args[2]) or 5
+        CurrentAnimation = Animations.Spin(Speed)
+        Notify("Spinning với tốc độ: " .. Speed)
+        
+    elseif Command == ";dance" then
+        CurrentAnimation = Animations.Dance()
+        Notify("Dance time! 🕺")
+        
+    elseif Command == ";float" then
+        CurrentAnimation = Animations.Float()
+        Notify("Bayyyyyy! 🎈")
+        
+    elseif Command == ";disco" then
+        CurrentAnimation = Animations.Disco()
+        Notify("Disco Party! 🪩")
+        
+    elseif Command == ";giant" then
+        CurrentAnimation = Animations.Giant()
+        Notify("Khổng lồ! 👹")
+        
+    elseif Command == ";tiny" then
+        CurrentAnimation = Animations.Tiny()
+        Notify("Nhỏ xíu! 🤏")
+        
+    elseif Command == ";headless" then
+        CurrentAnimation = Animations.Headless()
+        Notify("Đầu biến mất! 🎃")
+        
+    elseif Command == ";jitter" then
+        CurrentAnimation = Animations.Jitter()
+        Notify("Jitter jitter! 🥴")
+        
+    elseif Command == ";lay" then
+        CurrentAnimation = Animations.Lay()
+        Notify("Nằm nghỉ nào... 😴")
+        
+    elseif Command == ";sit" then
+        CurrentAnimation = Animations.Sit()
+        Notify("Ngồi xuống thôi! 🪑")
+        
+    elseif Command == ";fire" then
+        CurrentAnimation = Animations.Fire()
+        Notify("Bốc cháy! 🔥")
+        task.delay(5, function() if CurrentAnimation then pcall(CurrentAnimation) end end)
+        
+    elseif Command == ";smoke" then
+        CurrentAnimation = Animations.Smoke()
+        Notify("Khói mù! 💨")
+        task.delay(5, function() if CurrentAnimation then pcall(CurrentAnimation) end end)
+        
+    elseif Command == ";sparkles" then
+        CurrentAnimation = Animations.Sparkles()
+        Notify("Lấp lánh! ✨")
+        task.delay(5, function() if CurrentAnimation then pcall(CurrentAnimation) end end)
+        
+    elseif Command == ";rocket" then
+        CurrentAnimation = Animations.Rocket()
+        Notify("3... 2... 1... LIFT OFF! 🚀")
+        task.delay(2, function() if CurrentAnimation then pcall(CurrentAnimation) end end)
+        
+    elseif Command == ";anchor" then
+        HumanoidRootPart.Anchored = not HumanoidRootPart.Anchored
+        if HumanoidRootPart.Anchored then
+            Notify("Đã neo! ⚓")
+        else
+            Notify("Đã thả neo! 🏄")
+        end
+        
+    elseif Command == ";grav" then
+        if Args[2] then
+            workspace.Gravity = tonumber(Args[2]) or 196.2
+            Notify("Trọng lực: " .. workspace.Gravity)
+        else
+            workspace.Gravity = 0
+            Notify("Zero Gravity! 🪐")
+        end
+        
+    elseif Command == ";invis" then
+        CurrentAnimation = Animations.Invis()
+        Notify("Tàng hình! 👻")
+        
+    elseif Command == ";vis" then
+        for _, Part in pairs(Character:GetChildren()) do
+            if Part:IsA("BasePart") then
+                Part.Transparency = 0
+            end
+        end
+        Notify("Hiện hình! 😎")
+        
+    elseif Command == ";yeet" then
+        CurrentAnimation = Animations.Yeet()
+        Notify("Y E E T! 💥")
+        
+    elseif Command == ";fling" then
+        CurrentAnimation = Animations.Fling()
+        Notify("Flinggggg! 🌪️")
+        
+    elseif Command == ";worm" then
+        CurrentAnimation = Animations.Worm()
+        Notify("Bò như sâu! 🐛")
+        
+    elseif Command == ";snake" then
+        CurrentAnimation = Animations.Snake()
+        Notify("Bò như rắn! 🐍")
+        
+    elseif Command == ";swim" then
+        CurrentAnimation = Animations.Swim()
+        Notify("Bơi! 🏊")
+        
+    elseif Command == ";wave" then
+        CurrentAnimation = Animations.Wave()
+        Notify("Vẫy tay! 👋")
+        
+    elseif Command == ";salute" then
+        CurrentAnimation = Animations.Salute()
+        Notify("Chào! ✋")
+        
+    elseif Command == ";boxing" then
+        CurrentAnimation = Animations.Boxing()
+        Notify("Đấm bốc! 🥊")
+        
+    elseif Command == ";kick" then
+        CurrentAnimation = Animations.Kick()
+        Notify("Đá! 🦵")
+        
+    elseif Command == ";pushup" then
+        CurrentAnimation = Animations.Pushup()
+        Notify("Chống đẩy! 💪")
+        
+    elseif Command == ";jump" then
+        CurrentAnimation = Animations.Jump()
+        Notify("Nhảy! 🦘")
+        
+    elseif Command == ";crazy" then
+        CurrentAnimation = Animations.Crazy()
+        Notify("Điên cuồng! 🤪")
+        
+    elseif Command == ";magic" then
+        CurrentAnimation = Animations.Magic()
+        Notify("Phép thuật! 🔮")
+        
+    elseif Command == ";ghost" then
+        CurrentAnimation = Animations.Ghost()
+        Notify("Ma! 👻")
+        
+    elseif Command == ";volleyball" then
+        CurrentAnimation = Animations.Volleyball()
+        Notify("Bóng chuyền! 🏐")
+        
+    elseif Command == ";basketball" then
+        CurrentAnimation = Animations.Basketball()
+        Notify("Bóng rổ! 🏀")
+        
+    elseif Command == ";superhero" then
+        CurrentAnimation = Animations.Superhero()
+        Notify("Siêu anh hùng! 🦸")
+        
+    elseif Command == ";zombie" then
+        CurrentAnimation = Animations.Zombie()
+        Notify("Zombie! 🧟")
+        
+    elseif Command == ";robot" then
+        CurrentAnimation = Animations.Robot()
+        Notify("Robot! 🤖")
+        
+    elseif Command == ";crawl" then
+        CurrentAnimation = Animations.Crawl()
+        Notify("Bò! 🐢")
+        
+    else
+        -- Không làm gì nếu không phải lệnh
+    end
+end)
+
+Notify("Fun Commands Đã Sẵn Sàng! Gõ ;help")
+print("Fun Commands Đã Tải! Gõ ;help trong chat để xem danh sách lệnh.")
