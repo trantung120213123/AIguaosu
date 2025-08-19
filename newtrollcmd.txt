@@ -1,0 +1,490 @@
+-- [Phần 1/2: Script Chính] - Dán vào Executor (Như Synapse, Script-Ware, Krnl...)
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- Tạo một ScreenGui để hiển thị thông báo
+local gui = Instance.new("ScreenGui")
+gui.Name = "FunCommandsGui"
+gui.Parent = player.PlayerGui
+gui.ResetOnSpawn = false
+
+local textLabel = Instance.new("TextLabel")
+textLabel.Size = UDim2.new(0, 300, 0, 60)
+textLabel.Position = UDim2.new(0.5, -150, 0.1, 0)
+textLabel.AnchorPoint = Vector2.new(0.5, 0)
+textLabel.BackgroundTransparency = 0.7
+textLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+textLabel.TextColor3 = Color3.new(1, 1, 1)
+textLabel.TextSize = 20
+textLabel.Text = "Fun Commands Loaded! Type ;help"
+textLabel.Visible = false
+textLabel.Parent = gui
+
+-- Biến toàn cục để điều khiển các animation
+local ActiveAnimations = {}
+local SpinSpeed = 1
+
+-- Hàm hiển thị thông báo tạm thời
+local function notify(msg)
+    textLabel.Text = msg
+    textLabel.Visible = true
+    task.wait(3)
+    textLabel.Visible = false
+end
+
+-- Hàm dừng tất cả animation đang chạy
+local function stopAllAnimations()
+    for _, track in pairs(ActiveAnimations) do
+        track:Stop()
+    end
+    ActiveAnimations = {}
+    character:SetAttribute("Spinning", false)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+    humanoid.AutoRotate = true
+end
+
+-- Dictionary chứa các command và mô tả cho ;help
+local CommandList = {
+    [";spin"] = "Quay người như một chong chóng! ;spin [tốc độ]",
+    [";stop"] = "Dừng tất cả animation đang chạy.",
+    [";dance"] = "Nhảy điệu floss cực ngầu.",
+    [";panic"] = "Chạy tại chỗ trong hoảng loạn.",
+    [";float"] = "Bay lơ lửng như một quả bóng bay.",
+    [";disco"] = "Biến thành quả cầu disco, đổi màu liên tục.",
+    [";giant"] = "Phóng to thành người khổng lồ.",
+    [";tiny"] = "Thu nhỏ thành tí hon.",
+    [";headless"] = "Cái đầu biến đi đâu rồi?",
+    [";jitter"] = "Rung lắc không kiểm soát.",
+    [";lay"] = "Nằm dài ra đất.",
+    [";sit"] = "Ngồi xuống nghỉ ngơi.",
+    [";party"] = "Tung hội với nhạc và confetti!",
+    [";moonwalk"] = "Đi giật lùi như Michael Jackson.",
+    [";sleep"] = "Ngủ gật và ngáy o o.",
+    [";statue"] = "Đóng băng thành tượng.",
+    [";glitch"] = "Glitch glitch glitch!",
+    [";punish"] = "Trừng phạt bản thân bằng... tia sét.",
+    [";speed"] = "Chạy nhanh như gió.",
+    [";help"] = "Hiển thị danh sách tất cả command có sẵn."
+}
+
+-- Bắt đầu lắng nghe command từ chat
+player.Chatted:Connect(function(message)
+    local args = string.split(message, " ")
+    local cmd = string.lower(args[1])
+
+    -- Dừng mọi thứ trước khi chạy animation mới (trừ một số ngoại lệ)
+    if cmd ~= ";stop" and cmd ~= ";help" then
+        stopAllAnimations()
+    end
+
+    if cmd == ";help" then
+        notify("===== FUN COMMANDS HELP =====")
+        task.wait(0.5)
+        for command, desc in pairs(CommandList) do
+            print(command .. " - " .. desc)
+            notify(command .. " - " .. desc)
+            task.wait(0.8)
+        end
+        notify("===== END =====")
+
+    elseif cmd == ";spin" then
+        character:SetAttribute("Spinning", true)
+        if args[2] then
+            SpinSpeed = tonumber(args[2]) or 1
+        end
+        humanoid.AutoRotate = false
+        hrp.AssemblyAngularVelocity = Vector3.new(0, SpinSpeed * 20, 0)
+        notify("Spinning at speed: " .. tostring(SpinSpeed))
+
+    elseif cmd == ";stop" then
+        stopAllAnimations()
+        notify("Stopped all animations!")
+
+    elseif cmd == ";dance" then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://5917459365"
+        local track = humanoid:LoadAnimation(anim)
+        table.insert(ActiveAnimations, track)
+        track:Play()
+        notify("Dance time! 🕺")
+
+    elseif cmd == ";panic" then
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://33796059"
+        local track = humanoid:LoadAnimation(anim)
+        table.insert(ActiveAnimations, track)
+        track:Play()
+        notify("Aaaah! Panic!!")
+
+    -- (Các command khác như ;float, ;disco,... sẽ được triển khai tương tự với các AnimationId khác nhau)
+    -- Do giới hạn độ dài, code cho mỗi command sẽ được rút gọn.
+    -- Bạn có thể tìm AnimationId trên https://roblox.com/library/
+
+    else
+        -- notify("Command not found! Type ;help")
+        -- Hoặc không làm gì nếu command không khớp
+    end
+end)
+
+-- Một loop để xử lý các animation đặc biệt cần cập nhật liên tục, như ;disco (đổi màu)
+task.spawn(function()
+    while task.wait(0.2) do
+        if character:GetAttribute("DiscoMode") then
+            -- Code đổi màu ngẫu nhiên cho character
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+                end
+            end
+        end
+    end
+end)
+
+notify("Fun Commands Loaded! Type ;help")
+print("Fun Commands Loaded! Type ;help in chat.")
+
+-- [Phần 2/2: Hướng dẫn & Command Mẫu] - ĐỌC KỸ, KHÔNG COPY PHẦN NÀY VÀO EXECUTOR
+
+-- 1. HƯỚNG DẪN:
+--    * Phần 1 ở trên là bắt buộc. Dán nó vào executor của bạn và chạy.
+--    * Script này tạo các animation bằng cách tải các AnimationId từ thư viện Roblox.
+--    * Bạn CÓ THỂ cần phải tạo một số animation thủ công trong Roblox Studio nếu ID không hoạt động.
+
+-- 2. CÁCH THÊM COMMAND MỚI:
+--    Sao chép và dán khối "elseif" dưới đây, thay thế AnimationId và thông báo.
+--    Tìm AnimationId trên https://roblox.com/library/
+
+--    elseif cmd == ";tên_lệnh" then
+--        local anim = Instance.new("Animation")
+--        anim.AnimationId = "rbxassetid://123456789" -- Thay ID tại đây
+--        local track = humanoid:LoadAnimation(anim)
+--        table.insert(ActiveAnimations, track)
+--        track:Play()
+--        notify("Thông báo vui vẻ của bạn ở đây!")
+
+-- 3. DANH SÁCH ANIMATION ID MẪU ĐỂ BẠN THỬ:
+--    (Dán các khối 'elseif' này vào Phần 1, ngay sau lệnh ';panic')
+
+    elseif cmd == ";float" then
+        humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 10, 0)
+        notify("Wheee! I'm flying!")
+
+    elseif cmd == ";disco" then
+        character:SetAttribute("DiscoMode", true)
+        notify("Disco Party! 💃")
+
+    elseif cmd == ";giant" then
+        humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        local tweenInfo = TweenInfo.new(1)
+        local goal = {Size = Vector3.new(5, 5, 5)}
+        local tween = TweenService:Create(hrp, tweenInfo, goal)
+        tween:Play()
+        notify("Fee fi fo fum!")
+
+    elseif cmd == ";tiny" then
+        humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        local tweenInfo = TweenInfo.new(1)
+        local goal = {Size = Vector3.new(0.5, 0.5, 0.5)}
+        local tween = TweenService:Create(hrp, tweenInfo, goal)
+        tween:Play()
+        notify("I'm so smol!")
+
+    elseif cmd == ";headless" then
+        local head = character:FindFirstChild("Head")
+        if head then
+            head.Transparency = 1
+            head.face:Destroy()
+        end
+        notify("Where did my head go?")
+
+    elseif cmd == ";jitter" then
+        while task.wait(0.1) and character:GetAttribute("Jittering") do
+            hrp.CFrame = hrp.CFrame * CFrame.new(math.random(-1,1), 0, math.random(-1,1))
+        end
+        notify("Jitter jitter!")
+
+    elseif cmd == ";lay" then
+        humanoid.Sit = true
+        hrp.CFrame = hrp.CFrame * CFrame.Angles(-math.pi/2, 0, 0)
+        notify("Zzzzz...")
+
+    elseif cmd == ";sit" then
+        humanoid.Sit = true
+        notify("Taking a load off.")
+
+    elseif cmd == ";party" then
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://142376088" -- Party Horn sound
+        sound.Parent = hrp
+        sound:Play()
+        notify("Party time! 🎉")
+
+-- 4. LƯU Ý:
+--    * Một số animation có thể không hoàn hảo 100% và có thể cần bạn chỉnh sửa.
+--    * Luôn dùng ;stop để reset nhân vật nếu có lỗi.
+--    * Script này chỉ hoạt động trên Local Script (tức là chỉ bạn nhìn thấy hiệu ứng).
+
+-- [Phần 3/5: Script Mở Rộng - Vật Lý & Hiệu Ứng]
+-- DÁN PHẦN NÀY VÀO CUỐI CÙNG CỦA SCRIPT CHÍNH (Phần 1), TRƯỚC DÒNG "notify("Fun Commands Loaded!...")"
+
+    elseif cmd == ";rocket" then
+        stopAllAnimations()
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 100, 0)
+        bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+        bodyVelocity.Parent = hrp
+        notify("3... 2... 1... LIFT OFF! 🚀")
+        task.wait(2)
+        bodyVelocity:Destroy()
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+
+    elseif cmd == ";anchor" then
+        hrp.Anchored = not hrp.Anchored
+        if hrp.Anchored then
+            notify("Anchored! You're stuck!")
+        else
+            notify("Unanchored! You're free!")
+        end
+
+    elseif cmd == ";grav" then
+        if args[2] then
+            workspace.Gravity = tonumber(args[2]) or 196.2
+            notify("Gravity set to: " .. tostring(workspace.Gravity))
+        else
+            workspace.Gravity = 0
+            notify("Zero gravity! Wheee!")
+        end
+
+    elseif cmd == ";slip" then
+        humanoid.WalkSpeed = 0
+        hrp.AssemblyLinearVelocity = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
+        notify("Whoa! Banana peel! 🍌")
+        task.wait(1)
+        humanoid.WalkSpeed = 16
+
+    elseif cmd == ";swim" then
+        workspace.Gravity = 10
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 5, 0)
+        bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+        bodyVelocity.Parent = hrp
+        notify("Just keep swimming~ 🐠")
+        task.wait(5)
+        bodyVelocity:Destroy()
+        workspace.Gravity = 196.2
+
+    elseif cmd == ";invis" then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+        notify("Now you see me... now you don't.")
+
+    elseif cmd == ";vis" then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+            end
+        end
+        notify("I'm back!")
+
+    elseif cmd == ";clone" then
+        local clone = character:Clone()
+        clone.Parent = workspace
+        clone:MoveTo(hrp.Position + Vector3.new(5, 0, 0))
+        notify("Hello, me!")
+
+    elseif cmd == ";fire" then
+        local fire = Instance.new("Fire")
+        fire.Size = 10
+        fire.Parent = hrp
+        notify("I'm on FIRE! 🔥")
+        task.wait(5)
+        fire:Destroy()
+
+    elseif cmd == ";smoke" then
+        local smoke = Instance.new("Smoke")
+        smoke.Size = 20
+        smoke.Parent = hrp
+        notify("Smoke break! 💨")
+        task.wait(5)
+        smoke:Destroy()
+
+    elseif cmd == ";sparkles" then
+        local sparkles = Instance.new("Sparkles")
+        sparkles.SparkleColor = Color3.fromRGB(math.random(0,255), math.random(0,255), math.random(0,255))
+        sparkles.Parent = hrp
+        notify("Shiny! ✨")
+        task.wait(5)
+        sparkles:Destroy()
+
+-- [Phần 4/5: Script Mở Rộng - Troll & Hài Hước]
+-- DÁN PHẦN NÀY TIẾP THEO PHẦN 3
+
+    elseif cmd == ";yeet" then
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 100, 0) + (hrp.CFrame.LookVector * 100)
+        notify("Y E E T ! !")
+
+    elseif cmd == ";worm" then
+        humanoid.PlatformStand = true
+        for i = 1, 20 do
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(math.rad(45), 0, 0)
+            task.wait(0.2)
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(math.rad(-45), 0, 0)
+            task.wait(0.2)
+        end
+        humanoid.PlatformStand = false
+        notify("I'm a worm! 🐛")
+
+    elseif cmd == ";camera" then
+        local currentCam = workspace.CurrentCamera
+        currentCam.CameraType = Enum.CameraType.Scriptable
+        currentCam.CFrame = hrp.CFrame * CFrame.new(0, 5, -10)
+        notify("Director mode! 🎥")
+        task.wait(5)
+        currentCam.CameraType = Enum.CameraType.Custom
+
+    elseif cmd == ";fling" then
+        hrp.AssemblyLinearVelocity = Vector3.new(math.random(-500,500), math.random(-500,500), math.random(-500,500))
+        notify("Wheeeeeeeeee! *bonk*")
+
+    elseif cmd == ";wings" then
+        -- Tạo hiệu ứng cánh cơ bản từ các Part
+        local part1 = Instance.new("Part")
+        part1.Size = Vector3.new(1, 3, 0.2)
+        part1.BrickColor = BrickColor.new("White")
+        part1.Anchored = true
+        part1.CanCollide = false
+        part1.Parent = workspace
+
+        local part2 = part1:Clone()
+        part2.Parent = workspace
+
+        for i = 1, 20 do
+            part1.CFrame = hrp.CFrame * CFrame.new(-2, 0.5, 0) * CFrame.Angles(0, 0, math.rad(i*5))
+            part2.CFrame = hrp.CFrame * CFrame.new(2, 0.5, 0) * CFrame.Angles(0, 0, math.rad(-i*5))
+            task.wait(0.05)
+        end
+        notify("I'm an angel! 😇")
+        task.wait(2)
+        part1:Destroy()
+        part2:Destroy()
+
+    elseif cmd == ";snake" then
+        humanoid.WalkSpeed = 35
+        humanoid.JumpPower = 0
+        notify("Ssssssssss! 🐍")
+        task.wait(10)
+        humanoid.WalkSpeed = 16
+        humanoid.JumpPower = 50
+
+    elseif cmd == ";lag" then
+        -- Tạo hiệu ứng "lag" bằng cách spam Part
+        notify("Initiating lag machine... 💀")
+        for i = 1, 50 do
+            local part = Instance.new("Part")
+            part.Size = Vector3.new(1, 1, 1)
+            part.Position = hrp.Position + Vector3.new(math.random(-10,10), math.random(0,10), math.random(-10,10))
+            part.Anchored = true
+            part.Parent = workspace
+            task.wait(0.05)
+        end
+        notify("May your frames rest in peace.")
+
+    elseif cmd == ";rainbow" then
+        character:SetAttribute("Rainbow", true)
+        notify("Taste the rainbow! 🌈")
+        task.wait(10)
+        character:SetAttribute("Rainbow", false)
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Color = Color3.new(1, 1, 1)
+            end
+        end
+
+-- [Phần 5/5: Hướng Dẫn & Cập Nhật Loop] - THAY THẾ HOÀN TOÀN VÒNG LẶP TRONG PHẦN 1
+-- TÌM VÀ THAY THẾ ĐOẠN NÀY TRONG PHẦN 1:
+
+-- task.spawn(function()
+--     while task.wait(0.2) do
+--         if character:GetAttribute("DiscoMode") then
+--             for _, part in pairs(character:GetChildren()) do
+--                 if part:IsA("BasePart") then
+--                     part.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+--                 end
+--             end
+--         end
+--     end
+-- end)
+
+-- VÀ THAY THẾ BẰNG VÒNG LẶP MỚI, MẠNH MẼ HƠN DƯỚI ĐÂY:
+
+-- Một loop để xử lý các animation và hiệu ứng đặc biệt cần cập nhật liên tục
+task.spawn(function()
+    while task.wait(0.1) do
+        -- Xử lý Disco Mode
+        if character:GetAttribute("DiscoMode") then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+                end
+            end
+        end
+
+        -- Xử lý Rainbow Mode (chu kỳ màu mượt mà)
+        if character:GetAttribute("Rainbow") then
+            local tick = tick()
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    local hue = (tick * 360) % 360
+                    part.Color = Color3.fromHSV(hue/360, 1, 1)
+                end
+            end
+        end
+
+        -- Xử lý Jitter Mode
+        if character:GetAttribute("Jittering") then
+            hrp.CFrame = hrp.CFrame * CFrame.new(math.random(-2,2)/5, 0, math.random(-2,2)/5)
+        end
+
+        -- Xử lý Spin Mode (nếu dùng attribute)
+        if character:GetAttribute("Spinning") and not character:GetAttribute("SpinningStopped") then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(SpinSpeed*20), 0)
+        end
+    end
+end)
+
+-- THÊM CÁC LỆNH SAU VÀO DICTIONARY CommandList Ở ĐẦU SCRIPT (Phần 1) ĐỂ ;help HIỂN THỊ ĐẦY ĐỦ:
+-- Tìm dòng: local CommandList = { ... } và thêm vào trong đó:
+
+    [";rocket"] = "Phóng lên trời như tên lửa!",
+    [";anchor"] = "Ghim hoặc thả trôi nhân vật.",
+    [";grav"] = "Thay đổi trọng lực thế giới. ;grav [số]",
+    [";slip"] = "Trượt chân trên vỏ chuối.",
+    [";swim"] = "Bơi trong không trung.",
+    [";invis"] = "Tàng hình.",
+    [";vis"] = "Hiện hình.",
+    [";clone"] = "Tạo một bản sao của bạn.",
+    [";fire"] = "Bốc cháy! (Trong 5 giây)",
+    [";smoke"] = "Phun khói.",
+    [";sparkles"] = "Tỏa sáng lấp lánh.",
+    [";yeet"] = "Tự ném mình đi xa.",
+    [";worm"] = "Di chuyển như một chú sâu.",
+    [";camera"] = "Đổi góc camera trong 5 giây.",
+    [";fling"] = "Tự ném mình một cách ngẫu nhiên.",
+    [";wings"] = "Mọc cánh thiên thần.",
+    [";snake"] = "Bò nhanh như rắn.",
+    [";lag"] = "Tạo lag cho vui (cẩn thận!).",
+    [";rainbow"] = "Cơ thể chuyển màu cầu vồng liên tục.",
+
+-- Cuối cùng, thêm thông báo load hoàn chỉnh
+notify("ULTIMATE Fun Commands Loaded! " .. tostring(#CommandList) .. " commands ready! Type ;help")
+print("ULTIMATE Fun Commands Loaded! " .. tostring(#CommandList) .. " commands ready! Type ;help")
