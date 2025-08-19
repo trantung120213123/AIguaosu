@@ -1,0 +1,1096 @@
+-- [Ultimate Admin Script - Phần 1/3]
+-- Dán phần này đầu tiên vào executor
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+-- Tạo GUI chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UltimateAdminGUI"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Tạo main frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 350)
+MainFrame.Position = UDim2.new(0, 10, 0.5, -175)
+MainFrame.AnchorPoint = Vector2.new(0, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+-- Tạo thanh tiêu đề
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.Position = UDim2.new(0, 0, 0, 0)
+TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Ultimate Admin"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = TitleBar
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 30, 0, 30)
+ToggleButton.Position = UDim2.new(1, -30, 0, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "-"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextSize = 14
+ToggleButton.Parent = TitleBar
+
+-- Tạo thanh tìm kiếm
+local SearchBox = Instance.new("TextBox")
+SearchBox.Name = "SearchBox"
+SearchBox.Size = UDim2.new(1, -20, 0, 30)
+SearchBox.Position = UDim2.new(0, 10, 0, 35)
+SearchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SearchBox.BorderSizePixel = 0
+SearchBox.PlaceholderText = "Tìm kiếm lệnh..."
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.TextSize = 14
+SearchBox.Parent = MainFrame
+
+-- Tạo khung chứa lệnh
+local CommandsFrame = Instance.new("ScrollingFrame")
+CommandsFrame.Name = "CommandsFrame"
+CommandsFrame.Size = UDim2.new(1, -20, 1, -110)
+CommandsFrame.Position = UDim2.new(0, 10, 0, 70)
+CommandsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CommandsFrame.BorderSizePixel = 0
+CommandsFrame.ScrollBarThickness = 5
+CommandsFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+CommandsFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 5)
+UIListLayout.Parent = CommandsFrame
+
+-- Tạo thanh trạng thái
+local StatusBar = Instance.new("Frame")
+StatusBar.Name = "StatusBar"
+StatusBar.Size = UDim2.new(1, -20, 0, 30)
+StatusBar.Position = UDim2.new(0, 10, 1, -40)
+StatusBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+StatusBar.BorderSizePixel = 0
+StatusBar.Parent = MainFrame
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Name = "StatusText"
+StatusText.Size = UDim2.new(1, 0, 1, 0)
+StatusText.BackgroundTransparency = 1
+StatusText.Text = "Sẵn sàng"
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusText.Font = Enum.Font.Gotham
+StatusText.TextSize = 12
+StatusText.Parent = StatusBar
+
+-- Tạo notification system
+local NotificationFrame = Instance.new("Frame")
+NotificationFrame.Name = "NotificationFrame"
+NotificationFrame.Size = UDim2.new(0, 300, 0, 0)
+NotificationFrame.Position = UDim2.new(0.5, -150, 0, 10)
+NotificationFrame.AnchorPoint = Vector2.new(0.5, 0)
+NotificationFrame.BackgroundTransparency = 1
+NotificationFrame.Parent = ScreenGui
+
+local NotificationsList = Instance.new("UIListLayout")
+NotificationsList.Padding = UDim.new(0, 5)
+NotificationsList.SortOrder = Enum.SortOrder.LayoutOrder
+NotificationsList.Parent = NotificationFrame
+
+-- Biến toàn cục
+local Commands = {}
+local ActiveTweens = {}
+local ActiveConnections = {}
+local PlayerStates = {}
+local IsGuiMinimized = false
+local CommandButtons = {}
+
+-- Hàm hiển thị thông báo
+function ShowNotification(message, duration, color)
+    duration = duration or 5
+    color = color or Color3.fromRGB(0, 120, 215)
+    
+    local Notification = Instance.new("Frame")
+    Notification.Size = UDim2.new(1, 0, 0, 40)
+    Notification.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Notification.BorderSizePixel = 0
+    Notification.LayoutOrder = -999999999
+    Notification.Parent = NotificationFrame
+    
+    local ColorBar = Instance.new("Frame")
+    ColorBar.Size = UDim2.new(0, 5, 1, 0)
+    ColorBar.BackgroundColor3 = color
+    ColorBar.BorderSizePixel = 0
+    ColorBar.Parent = Notification
+    
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Size = UDim2.new(1, -15, 1, 0)
+    MessageLabel.Position = UDim2.new(0, 10, 0, 0)
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Text = message
+    MessageLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MessageLabel.Font = Enum.Font.Gotham
+    MessageLabel.TextSize = 14
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MessageLabel.Parent = Notification
+    
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Position = UDim2.new(1, -25, 0, 5)
+    CloseButton.BackgroundTransparency = 1
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.TextSize = 14
+    CloseButton.Parent = Notification
+    
+    CloseButton.MouseButton1Click:Connect(function()
+        Notification:Destroy()
+    end)
+    
+    -- Tự động đóng sau thời gian duration
+    task.spawn(function()
+        task.wait(duration)
+        if Notification and Notification.Parent then
+            Notification:Destroy()
+        end
+    end)
+    
+    return Notification
+end
+
+-- Hàm cập nhật trạng thái
+function UpdateStatus(message)
+    StatusText.Text = message
+end
+
+-- Hàm toggle GUI
+ToggleButton.MouseButton1Click:Connect(function()
+    if IsGuiMinimized then
+        -- Mở rộng
+        MainFrame.Size = UDim2.new(0, 300, 0, 350)
+        ToggleButton.Text = "-"
+        IsGuiMinimized = false
+    else
+        -- Thu nhỏ
+        MainFrame.Size = UDim2.new(0, 300, 0, 30)
+        ToggleButton.Text = "+"
+        IsGuiMinimized = true
+    end
+end)
+
+-- Hàm tìm kiếm lệnh
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local searchText = string.lower(SearchBox.Text)
+    
+    for name, button in pairs(CommandButtons) do
+        if searchText == "" or string.find(string.lower(name), searchText) then
+            button.Visible = true
+        else
+            button.Visible = false
+        end
+    end
+end)
+
+-- Kéo thả GUI
+local Dragging = false
+local DragInput, DragStart, StartPosition
+
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Dragging = true
+        DragStart = input.Position
+        StartPosition = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+        end)
+    end
+end)
+
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        DragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == DragInput and Dragging then
+        local delta = input.Position - DragStart
+        MainFrame.Position = UDim2.new(0, StartPosition.X.Offset + delta.X, 0, StartPosition.Y.Offset + delta.Y)
+    end
+end)
+
+-- Hàm thêm lệnh vào GUI
+function AddCommandToGUI(name, description)
+    local CommandButton = Instance.new("TextButton")
+    CommandButton.Name = name
+    CommandButton.Size = UDim2.new(1, 0, 0, 30)
+    CommandButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    CommandButton.BorderSizePixel = 0
+    CommandButton.Text = name .. " - " .. description
+    CommandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CommandButton.Font = Enum.Font.Gotham
+    CommandButton.TextSize = 12
+    CommandButton.TextXAlignment = Enum.TextXAlignment.Left
+    CommandButton.Parent = CommandsFrame
+    
+    CommandButton.MouseButton1Click:Connect(function()
+        ExecuteCommand(name)
+    end)
+    
+    CommandButtons[name] = CommandButton
+end
+
+-- Hàm thực thi lệnh
+function ExecuteCommand(name)
+    if Commands[name] and Commands[name].Function then
+        local success, err = pcall(Commands[name].Function)
+        if not success then
+            ShowNotification("Lỗi: " .. err, 5, Color3.fromRGB(255, 50, 50))
+        end
+    else
+        ShowNotification("Lệnh không tồn tại: " .. name, 3, Color3.fromRGB(255, 50, 50))
+    end
+end
+
+-- Xử lý khi player chết/respawn
+Player.CharacterAdded:Connect(function(character)
+    -- Đảm bảo GUI vẫn hoạt động
+    if not ScreenGui or not ScreenGui.Parent then
+        ScreenGui.Parent = game.CoreGui
+    end
+    
+    -- Khôi phục các tính năng đang hoạt động
+    for name, state in pairs(PlayerStates) do
+        if state.Active and Commands[name] and Commands[name].OnRespawn then
+            Commands[name].OnRespawn()
+        end
+    end
+    
+    ShowNotification("Nhân vật đã hồi sinh", 3, Color3.fromRGB(0, 200, 100))
+end)
+
+Player.CharacterRemoving:Connect(function()
+    ShowNotification("Nhân vật đã chết", 3, Color3.fromRGB(200, 100, 0))
+end)
+
+ShowNotification("Ultimate Admin đã tải thành công!", 5, Color3.fromRGB(0, 200, 100))
+UpdateStatus("Đã tải " .. tostring(0) .. " lệnh")
+
+-- [Ultimate Admin Script - Phần 2/3]
+-- Dán phần này sau Phần 1
+
+-- Định nghĩa các lệnh
+Commands["speed"] = {
+    Description = "Thay đổi tốc độ di chuyển",
+    Function = function()
+        local speed = tonumber(SearchBox.Text:match("%d+")) or 100
+        PlayerStates["speed"] = {Active = true, Value = speed}
+        
+        local character = Player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = speed
+                ShowNotification("Tốc độ đã được đặt thành: " .. speed, 3)
+            end
+        end
+    end,
+    OnRespawn = function()
+        if PlayerStates["speed"] and PlayerStates["speed"].Active then
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = PlayerStates["speed"].Value
+                end
+            end
+        end
+    end
+}
+
+Commands["jumppower"] = {
+    Description = "Thay đổi sức nhảy",
+    Function = function()
+        local power = tonumber(SearchBox.Text:match("%d+")) or 100
+        PlayerStates["jumppower"] = {Active = true, Value = power}
+        
+        local character = Player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.JumpPower = power
+                ShowNotification("Sức nhảy đã được đặt thành: " .. power, 3)
+            end
+        end
+    end,
+    OnRespawn = function()
+        if PlayerStates["jumppower"] and PlayerStates["jumppower"].Active then
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = PlayerStates["jumppower"].Value
+                end
+            end
+        end
+    end
+}
+
+Commands["noclip"] = {
+    Description = "Bật/tắt xuyên tường",
+    Function = function()
+        PlayerStates["noclip"] = {Active = not (PlayerStates["noclip"] and PlayerStates["noclip"].Active)}
+        
+        if PlayerStates["noclip"].Active then
+            ShowNotification("Noclip đã bật", 3)
+            
+            local function noclipLoop()
+                if PlayerStates["noclip"] and PlayerStates["noclip"].Active then
+                    local character = Player.Character
+                    if character then
+                        for _, part in pairs(character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- Chạy noclip mỗi frame
+            local noclipConnection
+            noclipConnection = RunService.Stepped:Connect(noclipLoop)
+            table.insert(ActiveConnections, noclipConnection)
+        else
+            ShowNotification("Noclip đã tắt", 3)
+        end
+    end
+}
+
+Commands["fly"] = {
+    Description = "Bật/tắt bay",
+    Function = function()
+        PlayerStates["fly"] = {Active = not (PlayerStates["fly"] and PlayerStates["fly"].Active)}
+        
+        if PlayerStates["fly"].Active then
+            ShowNotification("Fly đã bật", 3)
+            
+            local character = Player.Character
+            if not character then return end
+            
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+            
+            -- Tạo các part để fly
+            local torso = character:FindFirstChild("HumanoidRootPart")
+            if not torso then return end
+            
+            local bodyGyro = Instance.new("BodyGyro")
+            bodyGyro.P = 10000
+            bodyGyro.D = 500
+            bodyGyro.MaxTorque = Vector3.new(0, 0, 0)
+            bodyGyro.CFrame = torso.CFrame
+            bodyGyro.Parent = torso
+            
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+            bodyVelocity.Parent = torso
+            
+            local flying = true
+            local speed = 1
+            
+            -- Hàm fly
+            local function fly()
+                if not flying or not PlayerStates["fly"].Active then return end
+                
+                local camera = workspace.CurrentCamera
+                if not camera then return end
+                
+                bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
+                bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+                
+                bodyGyro.CFrame = camera.CFrame
+                
+                local moveDirection = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    moveDirection = moveDirection + (camera.CFrame.LookVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    moveDirection = moveDirection - (camera.CFrame.LookVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    moveDirection = moveDirection - (camera.CFrame.RightVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    moveDirection = moveDirection + (camera.CFrame.RightVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    moveDirection = moveDirection + Vector3.new(0, speed, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                    moveDirection = moveDirection - Vector3.new(0, speed, 0)
+                end
+                
+                bodyVelocity.Velocity = moveDirection * 50
+            end
+            
+            -- Kết nối sự kiện
+            local flyConnection
+            flyConnection = RunService.Heartbeat:Connect(fly)
+            table.insert(ActiveConnections, flyConnection)
+            
+            -- Lưu trữ state
+            PlayerStates["fly"].BodyGyro = bodyGyro
+            PlayerStates["fly"].BodyVelocity = bodyVelocity
+            PlayerStates["fly"].Connection = flyConnection
+        else
+            ShowNotification("Fly đã tắt", 3)
+            
+            -- Dọn dẹp
+            if PlayerStates["fly"].BodyGyro then
+                PlayerStates["fly"].BodyGyro:Destroy()
+            end
+            if PlayerStates["fly"].BodyVelocity then
+                PlayerStates["fly"].BodyVelocity:Destroy()
+            end
+            if PlayerStates["fly"].Connection then
+                PlayerStates["fly"].Connection:Disconnect()
+            end
+        end
+    end
+}
+
+Commands["goto"] = {
+    Description = "Dịch chuyển đến người chơi",
+    Function = function()
+        local targetName = SearchBox.Text:match("%S+")
+        if not targetName then
+            ShowNotification("Vui lòng nhập tên người chơi", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetPlayer = nil
+        for _, player in pairs(Players:GetPlayers()) do
+            if string.find(string.lower(player.Name), string.lower(targetName)) then
+                targetPlayer = player
+                break
+            end
+        end
+        
+        if not targetPlayer or targetPlayer == Player then
+            ShowNotification("Không tìm thấy người chơi: " .. targetName, 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetCharacter = targetPlayer.Character
+        if not targetCharacter then
+            ShowNotification("Người chơi không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then
+            ShowNotification("Không tìm thấy HumanoidRootPart", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local character = Player.Character
+        if not character then
+            ShowNotification("Bạn không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then
+            ShowNotification("Không tìm thấy HumanoidRootPart của bạn", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        root.CFrame = targetRoot.CFrame
+        ShowNotification("Đã dịch chuyển đến " .. targetPlayer.Name, 3)
+    end
+}
+
+Commands["bring"] = {
+    Description = "Kéo người chơi đến bạn",
+    Function = function()
+        local targetName = SearchBox.Text:match("%S+")
+        if not targetName then
+            ShowNotification("Vui lòng nhập tên người chơi", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetPlayer = nil
+        for _, player in pairs(Players:GetPlayers()) do
+            if string.find(string.lower(player.Name), string.lower(targetName)) then
+                targetPlayer = player
+                break
+            end
+        end
+        
+        if not targetPlayer or targetPlayer == Player then
+            ShowNotification("Không tìm thấy người chơi: " .. targetName, 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetCharacter = targetPlayer.Character
+        if not targetCharacter then
+            ShowNotification("Người chơi không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then
+            ShowNotification("Không tìm thấy HumanoidRootPart", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local character = Player.Character
+        if not character then
+            ShowNotification("Bạn không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then
+            ShowNotification("Không tìm thấy HumanoidRootPart của bạn", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        targetRoot.CFrame = root.CFrame
+        ShowNotification("Đã kéo " .. targetPlayer.Name .. " đến bạn", 3)
+    end
+}
+
+Commands["invisible"] = {
+    Description = "Ẩn hiện bản thân",
+    Function = function()
+        PlayerStates["invisible"] = {Active = not (PlayerStates["invisible"] and PlayerStates["invisible"].Active)}
+        
+        local character = Player.Character
+        if not character then return end
+        
+        if PlayerStates["invisible"].Active then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 1
+                end
+            end
+            ShowNotification("Đã ẩn", 3)
+        else
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 0
+                end
+            end
+            ShowNotification("Đã hiện", 3)
+        end
+    end,
+    OnRespawn = function()
+        if PlayerStates["invisible"] and PlayerStates["invisible"].Active then
+            local character = Player.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 1
+                    end
+                end
+            end
+        end
+    end
+}
+
+Commands["godmode"] = {
+    Description = "Bật/tắt chế độ bất tử",
+    Function = function()
+        PlayerStates["godmode"] = {Active = not (PlayerStates["godmode"] and PlayerStates["godmode"].Active)}
+        
+        local character = Player.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        
+        if PlayerStates["godmode"].Active then
+            humanoid.MaxHealth = math.huge
+            humanoid.Health = math.huge
+            ShowNotification("Godmode đã bật", 3)
+        else
+            humanoid.MaxHealth = 100
+            humanoid.Health = 100
+            ShowNotification("Godmode đã tắt", 3)
+        end
+    end,
+    OnRespawn = function()
+        if PlayerStates["godmode"] and PlayerStates["godmode"].Active then
+            local character = Player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.MaxHealth = math.huge
+                    humanoid.Health = math.huge
+                end
+            end
+        end
+    end
+}
+
+Commands["esp"] = {
+    Description = "Bật/tắt nhìn xuyên tường người chơi",
+    Function = function()
+        PlayerStates["esp"] = {Active = not (PlayerStates["esp"] and PlayerStates["esp"].Active)}
+        
+        if PlayerStates["esp"].Active then
+            ShowNotification("ESP đã bật", 3)
+            
+            -- Tạo highlight cho tất cả người chơi
+            for _, targetPlayer in pairs(Players:GetPlayers()) do
+                if targetPlayer ~= Player then
+                    local character = targetPlayer.Character
+                    if character then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = "AdminESP"
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        highlight.FillTransparency = 0.5
+                        highlight.Parent = character
+                    end
+                end
+            end
+            
+            -- Kết nối sự kiện khi người chơi join
+            local playerAddedConnection
+            playerAddedConnection = Players.PlayerAdded:Connect(function(targetPlayer)
+                targetPlayer.CharacterAdded:Connect(function(character)
+                    if PlayerStates["esp"] and PlayerStates["esp"].Active then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = "AdminESP"
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        highlight.FillTransparency = 0.5
+                        highlight.Parent = character
+                    end
+                end)
+            end)
+            
+            table.insert(ActiveConnections, playerAddedConnection)
+            PlayerStates["esp"].Connection = playerAddedConnection
+        else
+            ShowNotification("ESP đã tắt", 3)
+            
+            -- Xóa highlight khỏi tất cả người chơi
+            for _, targetPlayer in pairs(Players:GetPlayers()) do
+                if targetPlayer ~= Player then
+                    local character = targetPlayer.Character
+                    if character then
+                        local highlight = character:FindFirstChild("AdminESP")
+                        if highlight then
+                            highlight:Destroy()
+                        end
+                    end
+                end
+            end
+            
+            -- Ngắt kết nối
+            if PlayerStates["esp"].Connection then
+                PlayerStates["esp"].Connection:Disconnect()
+            end
+        end
+    end
+}
+
+-- Thêm nhiều lệnh khác ở đây...
+
+-- Thêm các lệnh vào GUI
+for name, cmd in pairs(Commands) do
+    AddCommandToGUI(name, cmd.Description)
+end
+
+UpdateStatus("Đã tải " .. tostring(#Commands) .. " lệnh")
+
+-- [Ultimate Admin Script - Phần 3/3]
+-- Dán phần này cuối cùng
+
+-- Thêm các lệnh bổ sung
+Commands["freeze"] = {
+    Description = "Đóng băng người chơi",
+    Function = function()
+        local targetName = SearchBox.Text:match("%S+")
+        if not targetName then
+            ShowNotification("Vui lòng nhập tên người chơi", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetPlayer = nil
+        for _, player in pairs(Players:GetPlayers()) do
+            if string.find(string.lower(player.Name), string.lower(targetName)) then
+                targetPlayer = player
+                break
+            end
+        end
+        
+        if not targetPlayer or targetPlayer == Player then
+            ShowNotification("Không tìm thấy người chơi: " .. targetName, 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetCharacter = targetPlayer.Character
+        if not targetCharacter then
+            ShowNotification("Người chơi không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+        if not targetRoot then
+            ShowNotification("Không tìm thấy HumanoidRootPart", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        targetRoot.Anchored = not targetRoot.Anchored
+        
+        if targetRoot.Anchored then
+            ShowNotification("Đã đóng băng " .. targetPlayer.Name, 3)
+        else
+            ShowNotification("Đã mở đóng băng " .. targetPlayer.Name, 3)
+        end
+    end
+}
+
+Commands["teleport"] = {
+    Description = "Dịch chuyển đến vị trí",
+    Function = function()
+        local parts = SearchBox.Text:match("([%d.-]+)[%s,]*([%d.-]+)[%s,]*([%d.-]+)")
+        if not parts then
+            ShowNotification("Vui lòng nhập tọa độ (x y z)", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local x, y, z = parts:match("([%d.-]+)[%s,]*([%d.-]+)[%s,]*([%d.-]+)")
+        x, y, z = tonumber(x), tonumber(y), tonumber(z)
+        
+        if not x or not y or not z then
+            ShowNotification("Tọa độ không hợp lệ", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local character = Player.Character
+        if not character then
+            ShowNotification("Bạn không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then
+            ShowNotification("Không tìm thấy HumanoidRootPart của bạn", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        root.CFrame = CFrame.new(x, y, z)
+        ShowNotification("Đã dịch chuyển đến " .. x .. ", " .. y .. ", " .. z, 3)
+    end
+}
+
+Commands["view"] = {
+    Description = "Quan sát người chơi",
+    Function = function()
+        local targetName = SearchBox.Text:match("%S+")
+        if not targetName then
+            -- Tắt view nếu không có tên
+            workspace.CurrentCamera.CameraSubject = Player.Character:FindFirstChildOfClass("Humanoid")
+            ShowNotification("Đã tắt quan sát", 3)
+            return
+        end
+        
+        local targetPlayer = nil
+        for _, player in pairs(Players:GetPlayers()) do
+            if string.find(string.lower(player.Name), string.lower(targetName)) then
+                targetPlayer = player
+                break
+            end
+        end
+        
+        if not targetPlayer or targetPlayer == Player then
+            ShowNotification("Không tìm thấy người chơi: " .. targetName, 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local targetCharacter = targetPlayer.Character
+        if not targetCharacter then
+            ShowNotification("Người chơi không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local humanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
+        if not humanoid then
+            ShowNotification("Người chơi không có Humanoid", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        workspace.CurrentCamera.CameraSubject = humanoid
+        ShowNotification("Đang quan sát " .. targetPlayer.Name, 3)
+    end
+}
+
+Commands["rejoin"] = {
+    Description = "Vào lại server",
+    Function = function()
+        ShowNotification("Đang vào lại server...", 3)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, Player)
+    end
+}
+
+Commands["serverhop"] = {
+    Description = "Chuyển sang server khác",
+    Function = function()
+        ShowNotification("Đang tìm server khác...", 3)
+        
+        -- Sử dụng TeleportService để tìm server khác
+        local servers = game:GetService("TeleportService"):GetGameInstances(game.PlaceId)
+        if #servers > 0 then
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)].Name, Player)
+        else
+            ShowNotification("Không tìm thấy server nào", 3, Color3.fromRGB(255, 50, 50))
+        end
+    end
+}
+
+Commands["tools"] = {
+    Description = "Nhận tất cả tool trong workspace",
+    Function = function()
+        local character = Player.Character
+        if not character then
+            ShowNotification("Bạn không có nhân vật", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local backpack = Player:FindFirstChild("Backpack")
+        if not backpack then
+            ShowNotification("Không tìm thấy Backpack", 3, Color3.fromRGB(255, 50, 50))
+            return
+        end
+        
+        local count = 0
+        for _, tool in pairs(workspace:GetChildren()) do
+            if tool:IsA("Tool") then
+                tool:Clone().Parent = backpack
+                count = count + 1
+            end
+        end
+        
+        ShowNotification("Đã nhận " .. count .. " tool", 3)
+    end
+}
+
+Commands["gravity"] = {
+    Description = "Thay đổi trọng lực",
+    Function = function()
+        local gravity = tonumber(SearchBox.Text:match("%d+")) or 196.2
+        workspace.Gravity = gravity
+        ShowNotification("Trọng lực đã được đặt thành: " .. gravity, 3)
+    end
+}
+
+Commands["time"] = {
+    Description = "Thay đổi thời gian trong ngày",
+    Function = function()
+        local time = tonumber(SearchBox.Text:match("%d+")) or 12
+        if time < 0 then time = 0 end
+        if time > 24 then time = 24 end
+        
+        game:GetService("Lighting").ClockTime = time
+        ShowNotification("Thời gian đã được đặt thành: " .. time, 3)
+    end
+}
+
+Commands["brightness"] = {
+    Description = "Thay đổi độ sáng",
+    Function = function()
+        local brightness = tonumber(SearchBox.Text:match("%d+")) or 1
+        if brightness < 0 then brightness = 0 end
+        if brightness > 100 then brightness = 100 end
+        
+        game:GetService("Lighting").Brightness = brightness
+        ShowNotification("Độ sáng đã được đặt thành: " .. brightness, 3)
+    end
+}
+
+Commands["fog"] = {
+    Description = "Thay đổi sương mù",
+    Function = function()
+        local fog = tonumber(SearchBox.Text:match("%d+")) or 0
+        if fog < 0 then fog = 0 end
+        if fog > 10000 then fog = 10000 end
+        
+        game:GetService("Lighting").FogEnd = fog
+        ShowNotification("Sương mù đã được đặt thành: " .. fog, 3)
+    end
+}
+
+Commands["fps"] = {
+    Description = "Hiển thị FPS",
+    Function = function()
+        PlayerStates["fps"] = {Active = not (PlayerStates["fps"] and PlayerStates["fps"].Active)}
+        
+        if PlayerStates["fps"].Active then
+            local fpsLabel = Instance.new("TextLabel")
+            fpsLabel.Name = "FPSLabel"
+            fpsLabel.Size = UDim2.new(0, 100, 0, 30)
+            fpsLabel.Position = UDim2.new(1, -110, 0, 10)
+            fpsLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            fpsLabel.BackgroundTransparency = 0.5
+            fpsLabel.BorderSizePixel = 0
+            fpsLabel.Text = "FPS: 0"
+            fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            fpsLabel.Font = Enum.Font.GothamBold
+            fpsLabel.TextSize = 14
+            fpsLabel.Parent = ScreenGui
+            
+            local fpsConnection
+            local frameCount = 0
+            local lastTime = tick()
+            
+            fpsConnection = RunService.RenderStepped:Connect(function()
+                frameCount = frameCount + 1
+                
+                local currentTime = tick()
+                if currentTime - lastTime >= 1 then
+                    local fps = math.floor(frameCount / (currentTime - lastTime))
+                    fpsLabel.Text = "FPS: " .. fps
+                    frameCount = 0
+                    lastTime = currentTime
+                end
+            end)
+            
+            PlayerStates["fps"].Label = fpsLabel
+            PlayerStates["fps"].Connection = fpsConnection
+            ShowNotification("Đã bật FPS counter", 3)
+        else
+            if PlayerStates["fps"].Label then
+                PlayerStates["fps"].Label:Destroy()
+            end
+            if PlayerStates["fps"].Connection then
+                PlayerStates["fps"].Connection:Disconnect()
+            end
+            ShowNotification("Đã tắt FPS counter", 3)
+        end
+    end
+}
+
+Commands["ping"] = {
+    Description = "Hiển thị Ping",
+    Function = function()
+        local ping = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+        ShowNotification("Ping: " .. math.floor(ping) .. "ms", 3)
+    end
+}
+
+Commands["clear"] = {
+    Description = "Xóa thông báo",
+    Function = function()
+        for _, child in pairs(NotificationFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        ShowNotification("Đã xóa thông báo", 2)
+    end
+}
+
+Commands["reset"] = {
+    Description = "Reset tất cả lệnh",
+    Function = function()
+        -- Dừng tất cả kết nối
+        for _, connection in pairs(ActiveConnections) do
+            pcall(function() connection:Disconnect() end)
+        end
+        ActiveConnections = {}
+        
+        -- Xóa tất cả tweens
+        for _, tween in pairs(ActiveTweens) do
+            pcall(function() tween:Cancel() end)
+        end
+        ActiveTweens = {}
+        
+        -- Reset tất cả states
+        for name, state in pairs(PlayerStates) do
+            if Commands[name] and Commands[name].Function then
+                -- Gọi hàm reset nếu có
+                if state.Active then
+                    local success, err = pcall(Commands[name].Function)
+                    if not success then
+                        warn("Lỗi khi reset " .. name .. ": " .. err)
+                    end
+                end
+            end
+        end
+        
+        PlayerStates = {}
+        
+        -- Reset GUI
+        SearchBox.Text = ""
+        for _, button in pairs(CommandButtons) do
+            button.Visible = true
+        end
+        
+        ShowNotification("Đã reset tất cả lệnh", 3, Color3.fromRGB(0, 200, 100))
+    end
+}
+
+-- Thêm các lệnh vào GUI
+for name, cmd in pairs(Commands) do
+    if not CommandButtons[name] then
+        AddCommandToGUI(name, cmd.Description)
+    end
+end
+
+UpdateStatus("Đã tải " .. tostring(#Commands) .. " lệnh")
+
+-- Chat command handler
+Player.Chatted:Connect(function(message)
+    if string.sub(message, 1, 1) == ";" then
+        local command = string.match(message, ";(%S+)")
+        if command and Commands[command] then
+            -- Lấy phần còn lại của tin nhắn làm tham số
+            local params = string.sub(message, string.len(command) + 2)
+            if params and params ~= "" then
+                SearchBox.Text = params
+            end
+            ExecuteCommand(command)
+        else
+            ShowNotification("Lệnh không tồn tại: " .. command, 3, Color3.fromRGB(255, 50, 50))
+        end
+    end
+end)
+
+ShowNotification("Tất cả lệnh đã được tải!", 5, Color3.fromRGB(0, 200, 100))
