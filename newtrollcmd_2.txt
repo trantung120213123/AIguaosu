@@ -1,0 +1,689 @@
+--// PHẦN 1: CORE COMMAND SYSTEM (COPY TRƯỚC)
+if getgenv().ChatAnimSystem then
+    getgenv().ChatAnimSystem:Disconnect()
+end
+
+-- Notify function
+local function Notify(msg)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Anim Command",
+        Text = msg,
+        Duration = 3
+    })
+end
+
+-- Danh sách command
+getgenv().AnimCommands = {
+    ["help"] = "Hiện danh sách command có sẵn"
+}
+
+-- Hàm chạy animation giả (sẽ thay bằng thật ở phần 2-5)
+local function PlayFakeAnim(name)
+    Notify("Đang chạy animation: " .. name)
+end
+
+-- Hàm xử lý command
+local function RunCommand(cmd)
+    if cmd == "help" then
+        local list = "Danh sách command:\n"
+        for k,_ in pairs(getgenv().AnimCommands) do
+            list = list .. "/"..k.." "
+        end
+        Notify(list)
+    else
+        if getgenv().AnimCommands[cmd] then
+            PlayFakeAnim(cmd)
+        else
+            Notify("Không có lệnh: /"..cmd)
+        end
+    end
+end
+
+-- Chat listener
+local function HookChat(plr)
+    return plr.Chatted:Connect(function(msg)
+        if string.sub(msg,1,1) == "/" then
+            local cmd = string.sub(msg,2):lower()
+            RunCommand(cmd)
+        end
+    end)
+end
+
+-- Đảm bảo chạy lại sau khi respawn
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+getgenv().ChatAnimSystem = HookChat(lp)
+
+lp.CharacterAdded:Connect(function()
+    task.wait(1)
+    if getgenv().ChatAnimSystem then
+        getgenv().ChatAnimSystem:Disconnect()
+    end
+    getgenv().ChatAnimSystem = HookChat(lp)
+    Notify("Anim command reloaded after respawn!")
+end)
+
+Notify("Anim Chat System Loaded! Gõ /help để xem lệnh.")
+
+-- PHẦN 2: Animation Commands (20 lệnh tiếp theo)
+
+addCommand("sitdance", function()
+    notify("Sit Dance Activated")
+    local hum = getHumanoid()
+    while hum and hum.Parent and hum.Sit do
+        hum.Parent:TranslateBy(Vector3.new(0,0,0.5))
+        wait(0.2)
+    end
+end)
+
+addCommand("spiderman", function()
+    notify("Spiderman Crawl")
+    local hum = getHumanoid()
+    for i=1,50 do
+        hum.Parent:TranslateBy(Vector3.new(0,0,-0.5))
+        wait(0.05)
+    end
+end)
+
+addCommand("snake", function()
+    notify("Snake Slither")
+    local hum = getHumanoid()
+    for i=1,100 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(0,math.sin(tick()*10)*0.1,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("helicopter", function()
+    notify("Helicopter Mode")
+    local hum = getHumanoid()
+    for i=1,50 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(0,5,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("moonwalk", function()
+    notify("Moonwalk")
+    local hum = getHumanoid()
+    for i=1,40 do
+        hum:Move(Vector3.new(-1,0,0), true)
+        wait(0.1)
+    end
+end)
+
+addCommand("karate", function()
+    notify("Karate Kick")
+    local hum = getHumanoid()
+    hum.Jump = true
+    wait(0.2)
+    hum.Parent:TranslateBy(Vector3.new(1,0,2))
+end)
+
+addCommand("breakdance", function()
+    notify("Breakdance Spin")
+    local hum = getHumanoid()
+    for i=1,40 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(0,0,1))
+        wait(0.05)
+    end
+end)
+
+addCommand("zombie", function()
+    notify("Zombie Walk")
+    local hum = getHumanoid()
+    for i=1,20 do
+        hum:Move(Vector3.new(0,0,1), true)
+        wait(0.3)
+    end
+end)
+
+addCommand("superkick", function()
+    notify("Super Kick")
+    local hum = getHumanoid()
+    hum.Jump = true
+    wait(0.1)
+    hum.Parent:TranslateBy(Vector3.new(5,0,0))
+end)
+
+addCommand("swimland", function()
+    notify("Swim On Land")
+    local hum = getHumanoid()
+    for i=1,30 do
+        hum:Move(Vector3.new(0,0,1), true)
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(0,0,math.sin(i)*0.1))
+        wait(0.1)
+    end
+end)
+
+addCommand("superpunch", function()
+    notify("Super Punch")
+    local hum = getHumanoid()
+    hum.Jump = true
+    wait(0.2)
+    hum.Parent:TranslateBy(Vector3.new(3,0,3))
+end)
+
+addCommand("matrix", function()
+    notify("Matrix Dodge")
+    local hum = getHumanoid()
+    for i=1,20 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(math.rad(-5),0,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("bow", function()
+    notify("Bow Down")
+    local hum = getHumanoid()
+    for i=1,20 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(math.rad(2),0,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("pushup", function()
+    notify("Push Ups")
+    local hum = getHumanoid()
+    for i=1,5 do
+        hum.Parent:TranslateBy(Vector3.new(0,-1,0))
+        wait(0.3)
+        hum.Parent:TranslateBy(Vector3.new(0,1,0))
+        wait(0.3)
+    end
+end)
+
+addCommand("headspin", function()
+    notify("Head Spin")
+    local hum = getHumanoid()
+    for i=1,50 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(5,0,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("flyjump", function()
+    notify("Fly Jump Forward")
+    local hum = getHumanoid()
+    hum.Jump = true
+    for i=1,20 do
+        hum.Parent:TranslateBy(Vector3.new(0,0,2))
+        wait(0.05)
+    end
+end)
+
+addCommand("roller", function()
+    notify("Roll Forward")
+    local hum = getHumanoid()
+    for i=1,20 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(5,0,0))
+        hum.Parent:TranslateBy(Vector3.new(0,0,1))
+        wait(0.05)
+    end
+end)
+
+addCommand("flop", function()
+    notify("Flop On Ground")
+    local hum = getHumanoid()
+    hum.Parent:TranslateBy(Vector3.new(0,-5,0))
+end)
+
+addCommand("spinjump", function()
+    notify("Spin Jump")
+    local hum = getHumanoid()
+    hum.Jump = true
+    for i=1,20 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(0,5,0))
+        wait(0.05)
+    end
+end)
+
+addCommand("backflip", function()
+    notify("Backflip")
+    local hum = getHumanoid()
+    hum.Jump = true
+    for i=1,15 do
+        hum.Parent:SetPrimaryPartCFrame(hum.Parent.PrimaryPart.CFrame * CFrame.Angles(-10,0,0))
+        wait(0.05)
+    end
+end)
+--[[ 🔥 FUN COMMAND SCRIPT - PART 3 🔥 ]]--
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local root = char:WaitForChild("HumanoidRootPart")
+
+-- Hàm thông báo
+local function Notify(msg)
+	game.StarterGui:SetCore("SendNotification", {
+		Title = "Fun Commands",
+		Text = msg,
+		Duration = 3
+	})
+end
+
+-- Danh sách lệnh
+local Commands = {
+	["/snake"] = function()
+		Notify("🐍 Snake crawl mode!")
+		for i = 1,30 do
+			root.CFrame = root.CFrame * CFrame.new(0,0,0) * CFrame.Angles(0,math.rad(math.sin(tick()*20)*20),0)
+			wait(0.1)
+		end
+	end,
+
+	["/matrix"] = function()
+		Notify("🕶 Matrix dodge!")
+		for i=1,25 do
+			root.CFrame = root.CFrame * CFrame.Angles(0,0,math.rad(-2))
+			wait(0.05)
+		end
+	end,
+
+	["/fallover"] = function()
+		Notify("💤 Fake knockout!")
+		for i=1,15 do
+			root.CFrame = root.CFrame * CFrame.Angles(math.rad(6),0,0)
+			wait(0.05)
+		end
+	end,
+
+	["/zombie"] = function()
+		Notify("🧟 Zombie walk!")
+		for i=1,30 do
+			root.CFrame = root.CFrame * CFrame.new(0,0,0.5) * CFrame.Angles(0,0,math.rad(math.sin(tick()*5)*10))
+			wait(0.1)
+		end
+	end,
+
+	["/pushup"] = function()
+		Notify("💪 Push up mode!")
+		for i=1,10 do
+			root.CFrame = root.CFrame * CFrame.new(0,-1,0)
+			wait(0.2)
+			root.CFrame = root.CFrame * CFrame.new(0,1,0)
+			wait(0.2)
+		end
+	end,
+
+	["/moonwalk"] = function()
+		Notify("🕺 Moonwalk mode!")
+		for i=1,25 do
+			root.CFrame = root.CFrame * CFrame.new(-0.3,0,0)
+			wait(0.1)
+		end
+	end,
+
+	["/worm"] = function()
+		Notify("🪱 The worm dance!")
+		for i=1,20 do
+			root.CFrame = root.CFrame * CFrame.new(0,math.sin(i*0.5),0.3)
+			wait(0.1)
+		end
+	end,
+
+	["/helicopter"] = function()
+		Notify("🚁 Helicopter spin!")
+		for i=1,50 do
+			root.CFrame = root.CFrame * CFrame.Angles(0,math.rad(45),0)
+			wait(0.05)
+		end
+	end,
+
+	["/dance2"] = function()
+		Notify("💃 Freestyle dance 2!")
+		for i=1,40 do
+			root.CFrame = root.CFrame * CFrame.new(math.sin(i)*0.3,0,math.cos(i)*0.3)
+			wait(0.1)
+		end
+	end,
+
+	["/sitspin"] = function()
+		Notify("🌀 Sitting spin!")
+		for i=1,30 do
+			root.CFrame = root.CFrame * CFrame.Angles(0,math.rad(30),0) * CFrame.new(0,0,0)
+			wait(0.1)
+		end
+	end,
+}
+
+-- Chat listener
+LocalPlayer.Chatted:Connect(function(msg)
+	msg = string.lower(msg)
+	if Commands[msg] then
+		Commands[msg]()
+	end
+	if msg == "/help3" then
+		local all = ""
+		for k,_ in pairs(Commands) do
+			all = all..k.." "
+		end
+		Notify("📜 Part 3 Commands: "..all)
+	end
+end)
+
+-- PHẦN 4: COMMAND VUI VẺ (TIẾP THEO)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+local cmds = {
+    moonwalk = function()
+        humanoid:LoadAnimation(Instance.new("Animation")).AnimationId = ""
+        for i=1,30 do
+            character:TranslateBy(Vector3.new(-1,0,0))
+            wait(0.1)
+        end
+    end,
+    matrix = function()
+        for i=1,30 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,0,math.rad(5))
+            wait(0.05)
+        end
+    end,
+    spinfast = function()
+        for i=1,50 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(20),0)
+            wait()
+        end
+    end,
+    drunk = function()
+        for i=1,30 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,0,math.rad(math.random(-10,10)))
+            wait(0.1)
+        end
+    end,
+    flipflop = function()
+        for i=1,10 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(180),0,0)
+            wait(0.3)
+        end
+    end,
+    bounce = function()
+        for i=1,20 do
+            character:TranslateBy(Vector3.new(0,5,0))
+            wait(0.2)
+        end
+    end,
+    wiggle = function()
+        for i=1,20 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(math.random(-30,30)),0)
+            wait(0.1)
+        end
+    end,
+    naruto = function()
+        for i=1,20 do
+            character:TranslateBy(Vector3.new(3,0,0))
+            wait(0.05)
+        end
+    end,
+    moon = function()
+        for i=1,40 do
+            character.HumanoidRootPart.CFrame *= CFrame.new(0,2,0)
+            wait(0.1)
+        end
+    end,
+    breakdance = function()
+        for i=1,50 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,0,math.rad(30))
+            wait()
+        end
+    end,
+    sitspin = function()
+        for i=1,30 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(25),0) * CFrame.new(0,-2,0)
+            wait(0.1)
+        end
+    end,
+    shark = function()
+        for i=1,40 do
+            character:TranslateBy(Vector3.new(0,math.sin(tick()*10),0))
+            wait(0.05)
+        end
+    end,
+    floataway = function()
+        for i=1,40 do
+            character.HumanoidRootPart.CFrame *= CFrame.new(0,2,0)
+            wait(0.1)
+        end
+    end,
+    helicopter = function()
+        for i=1,60 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(40),0)
+            wait()
+        end
+    end,
+    bellyspin = function()
+        for i=1,20 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(20),0,0)
+            wait(0.1)
+        end
+    end,
+    moonwalkfast = function()
+        for i=1,40 do
+            character:TranslateBy(Vector3.new(-2,0,0))
+            wait(0.05)
+        end
+    end,
+    slide = function()
+        for i=1,30 do
+            character.HumanoidRootPart.CFrame *= CFrame.new(2,0,0)
+            wait(0.05)
+        end
+    end,
+    limbo = function()
+        for i=1,20 do
+            character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(-5),0,0)
+            wait(0.1)
+        end
+    end,
+    flop = function()
+        character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(90),0,0)
+    end,
+    rocket = function()
+        for i=1,50 do
+            character.HumanoidRootPart.CFrame *= CFrame.new(0,5,0)
+            wait(0.05)
+        end
+    end,
+}
+
+-- Kết nối chat listener (nếu chưa có)
+player.Chatted:Connect(function(msg)
+    msg = msg:lower()
+    if cmds[msg] then
+        cmds[msg]()
+    elseif msg == "/help" then
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "COMMANDS (P4)",
+            Text = table.concat({"moonwalk","matrix","spinfast","drunk","flipflop","bounce","wiggle","naruto","moon","breakdance","sitspin","shark","floataway","helicopter","bellyspin","moonwalkfast","slide","limbo","flop","rocket"}, ", "),
+            Duration = 8
+        })
+    end
+end)
+
+-- Phần 5: Bộ lệnh vui (81 - 100)
+-- Tiếp tục từ phần trước, copy nối vào
+
+local funnyCommands5 = {
+    spinup = function(plr) -- Xoay lên trời
+        spawn(function()
+            for i=1,100 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(-math.rad(15),0,0)
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    rundizzy = function(plr) -- Chạy kiểu say rượu
+        spawn(function()
+            for i=1,30 do
+                plr.Character.Humanoid:Move(Vector3.new(math.random(-1,1),0,math.random(-1,1)), false)
+                task.wait(0.2)
+            end
+        end)
+    end,
+
+    jumploop = function(plr) -- Nhảy liên tục
+        spawn(function()
+            for i=1,20 do
+                plr.Character.Humanoid.Jump = true
+                task.wait(0.3)
+            end
+        end)
+    end,
+
+    heartdance = function(plr) -- Nhảy tạo hình trái tim
+        spawn(function()
+            for i=1,60 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(math.sin(i/10), math.cos(i/10), 0)
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    cartwheel = function(plr) -- Lộn vòng
+        spawn(function()
+            for i=1,60 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(0,0,math.rad(30))
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    headspin = function(plr) -- Quay đầu breakdance
+        spawn(function()
+            for i=1,80 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(30),0,0)
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    wormdance = function(plr) -- Nhảy worm
+        spawn(function()
+            for i=1,40 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0, math.sin(i/5)*2, 0)
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    lazy = function(plr) -- Nằm phè ra
+        plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0, -3, 0) * CFrame.Angles(math.rad(90),0,0)
+    end,
+
+    scared = function(plr) -- Rung bần bật
+        spawn(function()
+            for i=1,40 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(math.random(-1,1),0,math.random(-1,1))
+                task.wait(0.05)
+            end
+        end)
+    end,
+
+    cheer = function(plr) -- Giơ tay ăn mừng
+        spawn(function()
+            for i=1,30 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0,math.sin(i/5),0)
+                task.wait(0.1)
+            end
+        end)
+    end,
+
+    robotdance = function(plr) -- Nhảy robot
+        spawn(function()
+            for i=1,40 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(45),0)
+                task.wait(0.2)
+            end
+        end)
+    end,
+
+    kickflip = function(plr) -- Lộn ngược
+        spawn(function()
+            for i=1,30 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(45),0,0)
+                task.wait(0.1)
+            end
+        end)
+    end,
+
+    moonwalk = function(plr) -- Moonwalk
+        spawn(function()
+            for i=1,40 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(-0.5,0,0)
+                task.wait(0.1)
+            end
+        end)
+    end,
+
+    surf = function(plr) -- Giả vờ lướt sóng
+        spawn(function()
+            for i=1,50 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(math.sin(i/5),0,math.cos(i/5))
+                task.wait(0.1)
+            end
+        end)
+    end,
+
+    squat = function(plr) -- Ngồi xổm tập thể dục
+        spawn(function()
+            for i=1,10 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0,-2,0)
+                task.wait(0.2)
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0,2,0)
+                task.wait(0.2)
+            end
+        end)
+    end,
+
+    dizzyspin = function(plr) -- Xoay chóng mặt
+        spawn(function()
+            for i=1,200 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(0,math.rad(30),0)
+                task.wait(0.01)
+            end
+        end)
+    end,
+
+    pushup = function(plr) -- Hít đất
+        spawn(function()
+            for i=1,10 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0,-2,0)
+                task.wait(0.3)
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new(0,2,0)
+                task.wait(0.3)
+            end
+        end)
+    end,
+
+    crab = function(plr) -- Bò kiểu cua
+        spawn(function()
+            for i=1,20 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.new((i%2==0 and 2 or -2),0,0)
+                task.wait(0.3)
+            end
+        end)
+    end,
+
+    tornado = function(plr) -- Quay lốc xoáy
+        spawn(function()
+            for i=1,300 do
+                plr.Character.HumanoidRootPart.CFrame *= CFrame.Angles(math.rad(45),math.rad(45),0)
+                task.wait(0.01)
+            end
+        end)
+    end,
+}
+
+-- Thêm commands vào bảng chính
+for cmd,func in pairs(funnyCommands5) do
+    commands[cmd] = func
+end
+
+-- Kết thúc phần 5 (lệnh 81-100)
