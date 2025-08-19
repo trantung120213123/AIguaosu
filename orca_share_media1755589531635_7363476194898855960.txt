@@ -237,10 +237,78 @@ local currentTarget = nil
 local highlightGui = nil
 local lastAttack = 0
 local toolList = {
-    "Head First",
-    "Whirlwind Drop",
+    -- The Strongest Hero (Saitama)
+    "Normal Punch",
+    "Consecutive Punches",
+    "Shove",
+    "Uppercut",
+    "Death Counter",
+    "Table Flip",
+    "Serious Punch",
+    "Omni-Directional Punch",
+    -- Hero Hunter (Garou)
+    "Flowing Water",
+    "Lethal Whirlwind Stream",
+    "Hunter’s Grasp",
+    "Prey’s Peril",
+    "Water Stream Cutting Fist",
+    "The Final Hunt",
+    "Rock Splitting Fist",
+    "Crushed Rock",
+    -- Destructive Cyborg (Genos)
+    "Machine Gun Blows",
+    "Ignition Burst",
+    "Blitz Shot",
+    "Jet Dive",
+    "Thunder Kick",
+    "Speedblitz Dropkick",
+    "Flamewave Cannon",
+    "Incinerate",
+    -- Deadly Ninja (Sonic)
+    "Flash Strike",
+    "Whirlwind Kick",
+    "Scatter",
+    "Explosive Shuriken",
+    "Twinblade Rush",
+    "Straight On",
+    "Carnage",
+    "Fourfold Flashstrike",
+    -- Brutal Demon (Metal Bat)
+    "Homerun",
+    "Beatdown",
+    "Grand Slam",
+    "Foul Ball",
+    "Savage Tornado",
+    "Brutal Beatdown",
+    "Strength Difference",
+    "Death Blow",
+    -- Blade Master (Atomic Samurai)
+    "Quick Slice",
+    "Atmos Cleave",
+    "Pinpoint Cut",
+    "Split Second Counter",
+    "Sunset",
+    "Solar Cleave",
+    "Sunrise",
+    "Atomic Slash",
+    -- Wild Psychic (Tatsumaki)
+    "Crushing Pull",
+    "Windstorm Fury",
+    "Stone Coffin",
+    "Expulsive Push",
+    "Cosmic Strike",
+    "Psychic Ricochet",
+    "Terrible Tornado",
+    "Sky Snatcher",
+    -- Martial Artist (Silver Fang)
+    "Bullet Barrage",
     "Vanishing Kick",
-    "Bullet Barrage"
+    "Whirlwind Drop",
+    "Head First",
+    "Grand Fissure",
+    "Twin Fangs",
+    "Earth Splitting Strike",
+    "Last Breath"
 }
 
 -- utility: notification
