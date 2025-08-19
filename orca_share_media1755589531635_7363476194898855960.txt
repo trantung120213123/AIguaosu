@@ -1,0 +1,451 @@
+-- Luex UI (Part 1) | Aesthetic red-black translucent UI, draggable, minimize-to-logo
+-- SAFE: purely client UI + local animations
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+
+-- cleanup old
+pcall(function()
+    if game.CoreGui:FindFirstChild("LuexUI") then
+        game.CoreGui.LuexUI:Destroy()
+    end
+end)
+
+-- create ScreenGui
+local screen = Instance.new("ScreenGui")
+screen.Name = "LuexUI"
+screen.ResetOnSpawn = false
+screen.Parent = game.CoreGui
+
+-- main container
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 340, 0, 180)  -- Giảm chiều cao vì đã bỏ nút
+main.Position = UDim2.new(0.05, 0, 0.12, 0)
+main.BackgroundColor3 = Color3.fromRGB(12,12,12)
+main.BackgroundTransparency = 0.18
+main.BorderSizePixel = 0
+main.ClipsDescendants = true
+main.Active = true
+main.Parent = screen
+
+-- subtle red border glow (outer)
+local border = Instance.new("Frame", main)
+border.Name = "BorderGlow"
+border.AnchorPoint = Vector2.new(0.5,0.5)
+border.Position = UDim2.new(0.5,0,0.5,0)
+border.Size = UDim2.new(1,8,1,8)
+border.BackgroundTransparency = 1
+border.ZIndex = 0
+
+local borderStroke = Instance.new("UIStroke", border)
+borderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+borderStroke.Color = Color3.fromRGB(200,30,30)
+borderStroke.Transparency = 0.7
+borderStroke.Thickness = 2
+
+-- top bar (drag handle)
+local topBar = Instance.new("Frame", main)
+topBar.Name = "TopBar"
+topBar.Size = UDim2.new(1,0,0,46)
+topBar.Position = UDim2.new(0,0,0,0)
+topBar.BackgroundTransparency = 1
+
+-- Luex logo (TextLabel with glow + text stroke)
+local logo = Instance.new("TextLabel", topBar)
+logo.Name = "Logo"
+logo.Text = "LUEX"
+logo.Font = Enum.Font.GothamBlack
+logo.TextSize = 28
+logo.TextColor3 = Color3.fromRGB(255,120,80)
+logo.TextStrokeColor3 = Color3.fromRGB(120,10,10)
+logo.TextStrokeTransparency = 0.3
+logo.BackgroundTransparency = 1
+logo.Position = UDim2.new(0, 12, 0, 6)
+logo.Size = UDim2.new(0, 160, 0, 34)
+logo.TextXAlignment = Enum.TextXAlignment.Left
+logo.ZIndex = 3
+
+-- subtle gradient on text (via UIGradient on a label overlay)
+local gradHolder = Instance.new("Frame", logo)
+gradHolder.Size = UDim2.new(1,0,1,0)
+gradHolder.BackgroundTransparency = 1
+local uiGrad = Instance.new("UIGradient", gradHolder)
+uiGrad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 20)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,160,80)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(200,40,10))
+}
+uiGrad.Rotation = 10
+gradHolder.ZIndex = 2
+
+-- crack effect: a few rotated lines layered on logo (animated)
+local crackContainer = Instance.new("Frame", topBar)
+crackContainer.Name = "Crack"
+crackContainer.Size = UDim2.new(0, 140, 0, 34)
+crackContainer.Position = UDim2.new(0, 12, 0, 6)
+crackContainer.BackgroundTransparency = 1
+crackContainer.ZIndex = 2
+
+local function makeCrackLine(x, y, width, rot)
+    local f = Instance.new("Frame", crackContainer)
+    f.Size = UDim2.new(0, width, 0, 2)
+    f.Position = UDim2.new(0, x, 0, y)
+    f.BackgroundColor3 = Color3.fromRGB(255,60,20)
+    f.BackgroundTransparency = 0.25
+    f.Rotation = rot
+    f.BorderSizePixel = 0
+    f.ZIndex = 1
+    return f
+end
+
+makeCrackLine(0.15, 18, 60, -12)
+makeCrackLine(0.45, 8, 40, 8)
+makeCrackLine(0.65, 22, 50, -6)
+
+-- minimize/restore button (top-right)
+local minBtn = Instance.new("TextButton", topBar)
+minBtn.Name = "Minimize"
+minBtn.Size = UDim2.new(0, 36, 0, 28)
+minBtn.Position = UDim2.new(1, -44, 0, 8)
+minBtn.BackgroundColor3 = Color3.fromRGB(45, 8, 8)
+minBtn.BorderSizePixel = 0
+minBtn.Text = "-"
+minBtn.Font = Enum.Font.GothamBold
+minBtn.TextSize = 22
+minBtn.TextColor3 = Color3.fromRGB(240,240,240)
+minBtn.ZIndex = 4
+
+-- content area
+local content = Instance.new("Frame", main)
+content.Name = "Content"
+content.Position = UDim2.new(0, 12, 0, 56)
+content.Size = UDim2.new(1, -24, 1, -68)
+content.BackgroundTransparency = 1
+
+-- Chỉ còn nút Auto Kill
+local btnAuto = Instance.new("TextButton", content)
+btnAuto.Size = UDim2.new(1, 0, 0, 46)
+btnAuto.Position = UDim2.new(0, 0, 0, 0)
+btnAuto.BackgroundColor3 = Color3.fromRGB(35, 6, 6)
+btnAuto.BorderSizePixel = 0
+btnAuto.Text = "Toggle Auto Kill"
+btnAuto.Font = Enum.Font.GothamBold
+btnAuto.TextSize = 18
+btnAuto.TextColor3 = Color3.fromRGB(240,240,240)
+btnAuto.AutoButtonColor = false
+-- hover glow
+local stroke = Instance.new("UIStroke", btnAuto)
+stroke.Color = Color3.fromRGB(200,20,20)
+stroke.Transparency = 0.85
+stroke.Thickness = 1.5
+
+-- small hint text
+local hint = Instance.new("TextLabel", content)
+hint.Size = UDim2.new(1,0,0,28)
+hint.Position = UDim2.new(0,0,1,-28)  -- Đặt ở dưới cùng
+hint.BackgroundTransparency = 1
+hint.TextColor3 = Color3.fromRGB(200,200,200)
+hint.TextSize = 12
+hint.Font = Enum.Font.Gotham
+hint.Text = "Luex v1.5 | Pure Combat System"
+hint.TextWrapped = true
+
+-- logo animation: pulsing glow
+local glowFrame = Instance.new("Frame", logo)
+glowFrame.Size = UDim2.new(1.6, 0, 1.6, 0)
+glowFrame.Position = UDim2.new(-0.3, 0, -0.3, 0)
+glowFrame.BackgroundColor3 = Color3.fromRGB(255, 60, 20)
+glowFrame.BackgroundTransparency = 0.95
+glowFrame.ZIndex = 1
+local glowStroke = Instance.new("UIStroke", glowFrame)
+glowStroke.Color = Color3.fromRGB(255, 80, 20)
+glowStroke.Transparency = 0.9
+glowStroke.Thickness = 6
+
+-- store global refs for Part 2
+getgenv().LuexUI = {
+    Screen = screen,
+    Main = main,
+    Logo = logo,
+    MinBtn = minBtn,
+    AutoBtn = btnAuto,
+    Glow = glowFrame,
+    Crack = crackContainer
+}
+
+-- drag support (better for mobile)
+local dragging = false
+local dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+topBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+-- minimize behavior (tween)
+local minimized = false
+minBtn.MouseButton1Click:Connect(function()
+    if minimized then
+        -- restore
+        TweenService:Create(main, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0,340,0,180)}):Play()
+        TweenService:Create(main, TweenInfo.new(0.28), {Position = UDim2.new(0.05,0,0.12,0)}):Play()
+        content.Visible = true
+        -- show logo brighter
+        logo.TextTransparency = 0
+    else
+        -- shrink to logo-only
+        local targetSize = UDim2.new(0,150,0,46)
+        TweenService:Create(main, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+        content.Visible = false
+        -- dim text a bit when minimized
+        logo.TextTransparency = 0
+    end
+    minimized = not minimized
+end)
+
+-- finished part 
+print("Luex UI ready (Part 1) — run Part 2 to enable combat system.")
+
+-- Luex Logic (Part 2) | Pure Combat System
+-- Requires Part 1 to be running
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+
+if not getgenv().LuexUI then
+    warn("Part 1 not found. Run Part 1 first.")
+    return
+end
+
+local UI = getgenv().LuexUI
+local autoOn = false
+local currentTarget = nil
+local highlightGui = nil
+local lastAttack = 0
+local toolList = {
+    "Head First",
+    "Whirlwind Drop",
+    "Vanishing Kick",
+    "Bullet Barrage"
+}
+
+-- utility: notification
+local function notify(text, sec)
+    sec = sec or 2.5
+    local frame = Instance.new("Frame", UI.Screen)
+    frame.Size = UDim2.new(0, 260, 0, 32)
+    frame.Position = UDim2.new(0.02, 0, 0.02, 0)
+    frame.BackgroundTransparency = 0.15
+    frame.BackgroundColor3 = Color3.fromRGB(18,18,18)
+    frame.BorderSizePixel = 0
+    local lab = Instance.new("TextLabel", frame)
+    lab.Size = UDim2.new(1, -12, 1, 0)
+    lab.Position = UDim2.new(0, 6, 0, 0)
+    lab.BackgroundTransparency = 1
+    lab.Text = text
+    lab.TextXAlignment = Enum.TextXAlignment.Left
+    lab.TextColor3 = Color3.fromRGB(230,230,230)
+    lab.Font = Enum.Font.Gotham
+    lab.TextSize = 14
+    
+    spawn(function()
+        wait(sec)
+        for i=1,10 do
+            frame.BackgroundTransparency = frame.BackgroundTransparency + 0.08
+            lab.TextTransparency = (i/10)
+            wait(0.03)
+        end
+        frame:Destroy()
+    end)
+end
+
+-- highlight target
+local function makeHighlight(player)
+    pcall(function()
+        if highlightGui and highlightGui.Parent then highlightGui:Destroy() end
+        if not player or not player.Character then return end
+        local root = player.Character:FindFirstChild("HumanoidRootPart") or player.Character:FindFirstChildWhichIsA("BasePart")
+        if not root then return end
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "LuexTargetHighlight"
+        bg.Parent = player.Character
+        bg.Adornee = root
+        bg.Size = UDim2.new(0,140,0,48)
+        bg.AlwaysOnTop = true
+        local label = Instance.new("TextLabel", bg)
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 0.25
+        label.BackgroundColor3 = Color3.fromRGB(40,5,5)
+        label.Text = "TARGET: "..player.Name
+        label.TextColor3 = Color3.fromRGB(255,200,200)
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.TextStrokeTransparency = 0.6
+        highlightGui = bg
+    end)
+end
+
+local function clearHighlight()
+    pcall(function()
+        if highlightGui and highlightGui.Parent then highlightGui:Destroy() end
+        highlightGui = nil
+    end)
+end
+
+-- choose random player
+local function chooseRandom()
+    local pls = {}
+    for _,p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character:FindFirstChild("Humanoid").Health > 0 then
+            table.insert(pls, p)
+        end
+    end
+    if #pls == 0 then return nil end
+    return pls[math.random(1,#pls)]
+end
+
+-- teleport behind target
+local function teleportBehindTarget()
+    if not currentTarget or not currentTarget.Character then return end
+    local targetRoot = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoidRoot = char:FindFirstChild("HumanoidRootPart")
+    if not humanoidRoot then return end
+    
+    -- Calculate position behind target
+    local behindOffset = targetRoot.CFrame.lookVector * -3
+    local newPos = targetRoot.Position + behindOffset
+    
+    -- Face target
+    humanoidRoot.CFrame = CFrame.new(newPos, targetRoot.Position)
+end
+
+-- spam tools attack
+local function spamAttack()
+    if not currentTarget or not LocalPlayer.Character then return end
+    
+    local remote = LocalPlayer.Character:FindFirstChild("Communicate")
+    if not remote then return end
+    
+    -- Press G key
+    remote:FireServer({
+        MoveDirection = Vector3.zero,
+        Goal = "KeyPress",
+        Key = Enum.KeyCode.G
+    })
+    
+    -- Left click attack
+    remote:FireServer({
+        Goal = "LeftClick",
+        Mobile = true
+    })
+    
+    -- Spam all tools in the list
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack then
+        for _, toolName in ipairs(toolList) do
+            local tool = backpack:FindFirstChild(toolName)
+            if tool then
+                remote:FireServer({
+                    Tool = tool,
+                    Goal = "Console Move"
+                })
+            end
+        end
+    end
+end
+
+-- auto-kill loop
+spawn(function()
+    while true do
+        RunService.Heartbeat:Wait()
+        if autoOn then
+            -- Select new target if needed
+            if not currentTarget or not currentTarget.Character or not currentTarget.Character:FindFirstChild("Humanoid") or currentTarget.Character:FindFirstChild("Humanoid").Health <= 0 then
+                currentTarget = chooseRandom()
+                if currentTarget then
+                    notify("Selected: "..currentTarget.Name, 1.8)
+                    makeHighlight(currentTarget)
+                else
+                    notify("No valid targets found.", 1.8)
+                    clearHighlight()
+                end
+            else
+                -- Teleport behind target
+                teleportBehindTarget()
+                
+                -- Spam attack with all tools
+                if tick() - lastAttack > 0.001 then
+                    spamAttack()
+                    lastAttack = tick()
+                end
+                
+                -- Pulse logo glow
+                TweenService:Create(UI.Glow, TweenInfo.new(0.1), {BackgroundTransparency = 0.75}):Play()
+                wait(0.05)
+                TweenService:Create(UI.Glow, TweenInfo.new(0.1), {BackgroundTransparency = 0.95}):Play()
+            end
+        end
+    end
+end)
+
+-- Auto button click
+UI.AutoBtn.MouseButton1Click:Connect(function()
+    autoOn = not autoOn
+    UI.AutoBtn.Text = "AutoKill: "..(autoOn and "ON" or "OFF")
+    if autoOn then
+        notify("AutoKill enabled. Selecting target...", 2)
+    else
+        notify("AutoKill disabled", 1.5)
+        clearHighlight()
+    end
+end)
+
+-- Animate crack lines
+spawn(function()
+    while true do
+        for i,child in ipairs(UI.Crack:GetChildren()) do
+            if child:IsA("Frame") then
+                TweenService:Create(child, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, -1, true), {BackgroundTransparency = 0.6}):Play()
+            end
+        end
+        wait(1.2)
+    end
+end)
+
+-- Pulsing logo glow
+spawn(function()
+    while true do
+        TweenService:Create(UI.Glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.75}):Play()
+        wait(1.2)
+        TweenService:Create(UI.Glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 0.95}):Play()
+        wait(1.2)
+    end
+end)
+
+-- Cleanup
+Players.PlayerRemoving:Connect(function(p)
+    if currentTarget == p then
+        currentTarget = nil
+        clearHighlight()
+    end
+end)
+
+print("Luex Pure Combat System v1.5 loaded")
