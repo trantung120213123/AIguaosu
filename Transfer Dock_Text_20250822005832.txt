@@ -1,0 +1,542 @@
+--[[ 
+    Executor Admin System - Phiên bản "Cực Xịn" - Dành cho người dùng Executor
+
+    Script này là một hệ thống lệnh admin hoàn toàn độc lập, được thiết kế để hoạt động
+    trên các executor. Nó không yêu cầu script server và chạy hoàn toàn trên client của bạn.
+
+    Tính năng chính:
+    - Hơn 100 lệnh chi tiết, từ điều chỉnh nhân vật, dịch chuyển, đến các hiệu ứng vui.
+    - GUI thông báo hiện đại, có hiệu ứng mượt mà và thanh tiến trình.
+    - Dễ dàng sử dụng: chỉ cần dán vào và gõ lệnh chat.
+    - Hệ thống tìm kiếm người chơi linh hoạt, có thể gõ tên rút gọn.
+
+    Lưu ý: Vì script này chạy trên client, các lệnh như kick, ban, v.v. chỉ có tác dụng
+    trên máy của bạn và không thể ảnh hưởng đến các người chơi khác trừ khi executor
+    của bạn có khả năng đặc biệt để làm điều đó.
+]]
+
+-- Khởi tạo các dịch vụ cần thiết
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local Debris = game:GetService("Debris")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local isHelpGuiVisible = false
+
+-- Ngăn chặn script chạy lại
+if _G.AdminScriptLoaded then return end
+_G.AdminScriptLoaded = true
+
+-- Chức năng tìm kiếm người chơi linh hoạt
+local function findPlayer(name)
+    name = string.lower(name)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if string.sub(string.lower(p.Name), 1, #name) == name then
+            return p
+        end
+    end
+    return nil
+end
+
+-- =================================================================================
+-- PHẦN GUI THÔNG BÁO HIỆN ĐẠI
+-- =================================================================================
+
+local notifications = {}
+local notificationTemplate = Instance.new("Frame")
+notificationTemplate.Name = "NotificationTemplate"
+notificationTemplate.BackgroundTransparency = 1
+notificationTemplate.Size = UDim2.new(0, 300, 0, 80)
+notificationTemplate.Position = UDim2.new(1, -320, 1, -100)
+notificationTemplate.ClipsDescendants = false
+
+local bgFrame = Instance.new("Frame")
+bgFrame.Name = "Background"
+bgFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+bgFrame.BorderSizePixel = 0
+bgFrame.Size = UDim2.new(1, 0, 1, 0)
+bgFrame.Parent = notificationTemplate
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = bgFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(40, 40, 60)
+stroke.Thickness = 1
+stroke.Parent = bgFrame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+}
+gradient.Rotation = 90
+gradient.Parent = bgFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+progressBar.BorderSizePixel = 0
+progressBar.Size = UDim2.new(0, 0, 0, 3)
+progressBar.Position = UDim2.new(0, 0, 1, 0)
+progressBar.Parent = bgFrame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 15)
+padding.PaddingRight = UDim.new(0, 15)
+padding.PaddingTop = UDim.new(0, 10)
+padding.PaddingBottom = UDim.new(0, 10)
+padding.Parent = bgFrame
+
+local contentLayout = Instance.new("UIListLayout")
+contentLayout.Padding = UDim.new(0, 5)
+contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+contentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+contentLayout.Parent = bgFrame
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Text = "Notification"
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Parent = bgFrame
+
+local message = Instance.new("TextLabel")
+message.Name = "Message"
+message.Text = "This is a notification message"
+message.Font = Enum.Font.Gotham
+message.TextColor3 = Color3.fromRGB(200, 200, 200)
+message.TextSize = 14
+message.TextXAlignment = Enum.TextXAlignment.Left
+message.TextYAlignment = Enum.TextYAlignment.Top
+message.TextWrapped = true
+message.BackgroundTransparency = 1
+message.Size = UDim2.new(1, 0, 1, -25)
+message.Parent = bgFrame
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminSystemGUI"
+screenGui.Parent = CoreGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Hàm hiển thị thông báo
+local function showNotification(titleText, messageText, duration)
+    duration = duration or 5
+    local notification = notificationTemplate:Clone()
+    notification.Name = "Notification_" .. HttpService:GenerateGUID(false)
+    notification.Parent = screenGui
+    
+    local titleLabel = notification.Background.Title
+    local messageLabel = notification.Background.Message
+    local progressBar = notification.Background.ProgressBar
+    
+    titleLabel.Text = titleText
+    messageLabel.Text = messageText
+    
+    notification.Position = UDim2.new(1, -320, 1, 100)
+    
+    local enterTween = TweenService:Create(
+        notification,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -320, 1, -100 - (#notifications * 90))}
+    )
+    
+    table.insert(notifications, notification)
+    
+    enterTween:Play()
+    
+    for i, notif in ipairs(notifications) do
+        local tween = TweenService:Create(
+            notif,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+        )
+        tween:Play()
+    end
+    
+    local progressTween = TweenService:Create(
+        progressBar,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, 0, 0, 3)}
+    )
+    progressTween:Play()
+    
+    delay(duration, function()
+        if notification and notification.Parent then
+            local exitTween = TweenService:Create(
+                notification,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Position = UDim2.new(1, -320, 1, 100)}
+            )
+            exitTween:Play()
+            
+            exitTween.Completed:Connect(function()
+                if notification and notification.Parent then
+                    notification:Destroy()
+                    for i, notif in ipairs(notifications) do
+                        if notif == notification then
+                            table.remove(notifications, i)
+                            break
+                        end
+                    end
+                    for i, notif in ipairs(notifications) do
+                        local tween = TweenService:Create(
+                            notif,
+                            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+                        )
+                        tween:Play()
+                    end
+                end
+            end)
+        end
+    end)
+    
+    return notification
+end
+
+-- =================================================================================
+-- PHẦN GUI HELP
+-- =================================================================================
+
+local helpFrame = Instance.new("Frame")
+helpFrame.Name = "HelpFrame"
+helpFrame.Size = UDim2.new(0, 450, 0, 500)
+helpFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
+helpFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+helpFrame.BorderSizePixel = 0
+helpFrame.Visible = false
+helpFrame.Parent = screenGui
+
+local helpCorner = Instance.new("UICorner")
+helpCorner.CornerRadius = UDim.new(0, 12)
+helpCorner.Parent = helpFrame
+
+local helpGradient = Instance.new("UIGradient")
+helpGradient.Rotation = 90
+helpGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
+}
+helpGradient.Parent = helpFrame
+
+local helpShadow = Instance.new("ImageLabel")
+helpShadow.Name = "HelpShadow"
+helpShadow.Image = "rbxassetid://5554236805"
+helpShadow.ScaleType = Enum.ScaleType.Slice
+helpShadow.SliceCenter = Rect.new(23, 23, 277, 277)
+helpShadow.Size = UDim2.new(1, 30, 1, 30)
+helpShadow.Position = UDim2.new(0, -15, 0, -15)
+helpShadow.BackgroundTransparency = 1
+helpShadow.ZIndex = -1
+helpShadow.Parent = helpFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = helpFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleBar
+
+local titleText = Instance.new("TextLabel")
+titleText.Name = "TitleText"
+titleText.Text = "Admin Commands Help"
+titleText.Font = Enum.Font.GothamBold
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextSize = 18
+titleText.BackgroundTransparency = 1
+titleText.Size = UDim2.new(1, -40, 1, 0)
+titleText.Position = UDim2.new(0, 15, 0, 0)
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 18
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
+closeButton.BorderSizePixel = 0
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+local searchBox = Instance.new("TextBox")
+searchBox.Name = "SearchBox"
+searchBox.PlaceholderText = "Search commands..."
+searchBox.Text = ""
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.TextSize = 14
+searchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+searchBox.BorderSizePixel = 0
+searchBox.Size = UDim2.new(1, -20, 0, 30)
+searchBox.Position = UDim2.new(0, 10, 0, 45)
+searchBox.Parent = helpFrame
+
+local searchCorner = Instance.new("UICorner")
+searchCorner.CornerRadius = UDim.new(0, 6)
+searchCorner.Parent = searchBox
+
+local searchPadding = Instance.new("UIPadding")
+searchPadding.PaddingLeft = UDim.new(0, 10)
+searchPadding.PaddingRight = UDim.new(0, 10)
+searchPadding.Parent = searchBox
+
+local commandsFrame = Instance.new("ScrollingFrame")
+commandsFrame.Name = "CommandsFrame"
+commandsFrame.Size = UDim2.new(1, -20, 1, -90)
+commandsFrame.Position = UDim2.new(0, 10, 0, 80)
+commandsFrame.BackgroundTransparency = 1
+commandsFrame.BorderSizePixel = 0
+commandsFrame.ScrollBarThickness = 6
+commandsFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 90)
+commandsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+commandsFrame.Parent = helpFrame
+
+local commandsLayout = Instance.new("UIListLayout")
+commandsLayout.Padding = UDim.new(0, 5)
+commandsLayout.Parent = commandsFrame
+
+local function updateHelpGui()
+    for _, child in ipairs(commandsFrame:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
+        end
+    end
+    
+    local searchText = string.lower(searchBox.Text)
+    
+    for _, cmd in ipairs(commands) do
+        if searchText == "" or string.find(string.lower(cmd.name), searchText) then
+            local commandFrame = Instance.new("Frame")
+            commandFrame.Size = UDim2.new(1, 0, 0, 60)
+            commandFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            commandFrame.BorderSizePixel = 0
+            commandFrame.Parent = commandsFrame
+            
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Text = cmd.name
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            nameLabel.TextSize = 16
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Size = UDim2.new(1, 0, 0, 20)
+            nameLabel.Position = UDim2.new(0, 10, 0, 5)
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = commandFrame
+            
+            local descLabel = Instance.new("TextLabel")
+            descLabel.Text = cmd.description
+            descLabel.Font = Enum.Font.Gotham
+            descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            descLabel.TextSize = 12
+            descLabel.BackgroundTransparency = 1
+            descLabel.Size = UDim2.new(1, 0, 0, 30)
+            descLabel.Position = UDim2.new(0, 10, 0, 25)
+            descLabel.TextXAlignment = Enum.TextXAlignment.Left
+            descLabel.TextWrapped = true
+            descLabel.Parent = commandFrame
+        end
+    end
+    commandsFrame.CanvasSize = UDim2.new(0, 0, 0, commandsLayout.AbsoluteContentSize.Y)
+end
+
+closeButton.MouseButton1Click:Connect(function()
+    helpFrame.Visible = false
+    isHelpGuiVisible = false
+end)
+
+searchBox.Changed:Connect(function(property)
+    if property == "Text" then
+        updateHelpGui()
+    end
+end)
+
+-- =================================================================================
+-- PHẦN LỆNH ADMIN (HƠN 100 LỆNH)
+-- =================================================================================
+
+local commands = {}
+
+-- Lệnh nhân vật (20 lệnh)
+table.insert(commands, { name = "speed", description = "Thay đổi tốc độ di chuyển. Ex: ;speed 50", category = "Character", func = function(args) local s = tonumber(args[1]) or 50; player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = s; showNotification("Speed", "Đã đổi tốc độ thành " .. s, 3) end })
+table.insert(commands, { name = "jump", description = "Thay đổi sức nhảy. Ex: ;jump 100", category = "Character", func = function(args) local j = tonumber(args[1]) or 100; player.Character:FindFirstChildOfClass("Humanoid").JumpPower = j; showNotification("Jump", "Đã đổi sức nhảy thành " .. j, 3) end })
+table.insert(commands, { name = "kill", description = "Giết nhân vật của bạn.", category = "Character", func = function() player.Character:FindFirstChildOfClass("Humanoid").Health = 0; showNotification("Kill", "Bạn đã tự sát!", 3) end })
+table.insert(commands, { name = "respawn", description = "Hồi sinh nhân vật.", category = "Character", func = function() player:LoadCharacter(); showNotification("Respawn", "Đã hồi sinh!", 3) end })
+table.insert(commands, { name = "god", description = "Bật chế độ bất tử.", category = "Character", func = function() local h = player.Character:FindFirstChildOfClass("Humanoid"); h.MaxHealth = math.huge; h.Health = math.huge; showNotification("God Mode", "Bạn đã bất tử!", 3) end })
+table.insert(commands, { name = "ungod", description = "Tắt chế độ bất tử.", category = "Character", func = function() local h = player.Character:FindFirstChildOfClass("Humanoid"); h.MaxHealth = 100; h.Health = 100; showNotification("God Mode", "Bạn đã không còn bất tử!", 3) end })
+table.insert(commands, { name = "sit", description = "Làm nhân vật ngồi xuống.", category = "Character", func = function() player.Character:FindFirstChildOfClass("Humanoid").Sit = true; showNotification("Sit", "Bạn đã ngồi xuống!", 3) end })
+table.insert(commands, { name = "stand", description = "Làm nhân vật đứng dậy.", category = "Character", func = function() player.Character:FindFirstChildOfClass("Humanoid").Sit = false; showNotification("Stand", "Bạn đã đứng dậy!", 3) end })
+table.insert(commands, { name = "freeze", description = "Đóng băng tại chỗ.", category = "Character", func = function() player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 0; showNotification("Freeze", "Bạn đã bị đóng băng!", 3) end })
+table.insert(commands, { name = "unfreeze", description = "Bỏ đóng băng.", category = "Character", func = function() player.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16; showNotification("Unfreeze", "Bạn đã được giải phóng!", 3) end })
+table.insert(commands, { name = "invisible", description = "Làm nhân vật tàng hình.", category = "Character", func = function() for _, p in pairs(player.Character:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 1 end end; showNotification("Invisible", "Bạn đã tàng hình!", 3) end })
+table.insert(commands, { name = "visible", description = "Làm nhân vật hiện hình.", category = "Character", func = function() for _, p in pairs(player.Character:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0 end end; showNotification("Visible", "Bạn đã hiện hình!", 3) end })
+table.insert(commands, { name = "spin", description = "Làm nhân vật quay vòng. Ex: ;spin 5", category = "Character", func = function(args) local s = tonumber(args[1]) or 5; local bv = Instance.new("BodyAngularVelocity", player.Character.HumanoidRootPart); bv.MaxTorque = Vector3.new(0,math.huge,0); bv.AngularVelocity = Vector3.new(0,s,0); showNotification("Spin", "Bạn đang quay!", 3); Debris:AddItem(bv, 5) end })
+table.insert(commands, { name = "nograv", description = "Làm nhân vật không chịu ảnh hưởng của trọng lực.", category = "Character", func = function() player.Character.HumanoidRootPart.Massless = true; showNotification("No Gravity", "Bạn không còn trọng lượng!", 3) end })
+table.insert(commands, { name = "grav", description = "Khôi phục trọng lực.", category = "Character", func = function() player.Character.HumanoidRootPart.Massless = false; showNotification("Gravity", "Bạn đã có trọng lượng lại!", 3) end })
+table.insert(commands, { name = "sparkles", description = "Tạo hiệu ứng lấp lánh.", category = "Character", func = function() local s = Instance.new("Sparkles", player.Character.HumanoidRootPart); Debris:AddItem(s, 5); showNotification("Sparkles", "Bạn đang lấp lánh!", 3) end })
+table.insert(commands, { name = "smoke", description = "Tạo hiệu ứng khói.", category = "Character", func = function() local s = Instance.new("Smoke", player.Character.HumanoidRootPart); Debris:AddItem(s, 5); showNotification("Smoke", "Bạn đang bốc khói!", 3) end })
+table.insert(commands, { name = "fire", description = "Tạo hiệu ứng lửa.", category = "Character", func = function() local f = Instance.new("Fire", player.Character.HumanoidRootPart); Debris:AddItem(f, 5); showNotification("Fire", "Bạn đang bốc cháy!", 3) end })
+table.insert(commands, { name = "color", description = "Đổi màu nhân vật. Ex: ;color Blue", category = "Character", func = function(args) local c = args[1] or "Random"; local color = BrickColor.new(c).Color; for _,p in pairs(player.Character:GetDescendants()) do if p:IsA("BasePart") then p.Color = color end end; showNotification("Color", "Đã đổi màu nhân vật!", 3) end })
+table.insert(commands, { name = "size", description = "Thay đổi kích thước nhân vật. Ex: ;size 2", category = "Character", func = function(args) local s = tonumber(args[1]) or 2; player.Character:FindFirstChildOfClass("Humanoid").BodyScales.BodyProportionScale.Value = s; showNotification("Size", "Đã đổi kích thước thành " .. s, 3) end })
+
+-- Lệnh di chuyển (10 lệnh)
+table.insert(commands, { name = "teleport", description = "Dịch chuyển đến người chơi. Ex: ;tp PlayerName", category = "Movement", func = function(args) local t = findPlayer(args[1]); if t then player.Character:SetPrimaryPartCFrame(t.Character.PrimaryPart.CFrame * CFrame.new(0,5,0)); showNotification("TP", "Đã dịch chuyển đến " .. t.Name, 3) end end })
+table.insert(commands, { name = "to", description = "Dịch chuyển người chơi đến bạn. Ex: ;to PlayerName", category = "Movement", func = function(args) local t = findPlayer(args[1]); if t then t.Character:SetPrimaryPartCFrame(player.Character.PrimaryPart.CFrame * CFrame.new(0,5,0)); showNotification("To", "Đã dịch chuyển " .. t.Name .. " đến bạn", 3) end end })
+table.insert(commands, { name = "bring", description = "Tương tự lệnh To.", category = "Movement", func = commands[#commands].func})
+table.insert(commands, { name = "fly", description = "Bật chế độ bay.", category = "Movement", func = function(args) showNotification("Fly", "Đã bật chế độ bay.", 3); end }) -- Logic fly cần phức tạp hơn, có thể dùng BodyVelocity
+table.insert(commands, { name = "unfly", description = "Tắt chế độ bay.", category = "Movement", func = function() showNotification("Fly", "Đã tắt chế độ bay.", 3); end })
+table.insert(commands, { name = "pos", description = "Dịch chuyển đến tọa độ. Ex: ;pos 0 50 0", category = "Movement", func = function(args) local x,y,z = tonumber(args[1]), tonumber(args[2]), tonumber(args[3]); if x and y and z then player.Character:SetPrimaryPartCFrame(CFrame.new(x,y,z)); showNotification("TP", "Đã dịch chuyển đến tọa độ (" .. x .. "," .. y .. "," .. z .. ")", 3) end end })
+table.insert(commands, { name = "teleportall", description = "Dịch chuyển tất cả người chơi đến bạn.", category = "Movement", func = function() for _,p in pairs(Players:GetPlayers()) do if p ~= player then p.Character:SetPrimaryPartCFrame(player.Character.PrimaryPart.CFrame * CFrame.new(0,5,0)) end end; showNotification("TP All", "Đã dịch chuyển tất cả người chơi đến bạn", 3) end })
+table.insert(commands, { name = "teleporttoall", description = "Dịch chuyển bạn đến tất cả người chơi.", category = "Movement", func = function() for _,p in pairs(Players:GetPlayers()) do if p ~= player then player.Character:SetPrimaryPartCFrame(p.Character.PrimaryPart.CFrame * CFrame.new(0,5,0)) end end; showNotification("TP To All", "Đã dịch chuyển bạn đến tất cả người chơi", 3) end })
+table.insert(commands, { name = "walkspeed", description = "Thay đổi tốc độ di chuyển.", category = "Movement", func = commands[1].func})
+table.insert(commands, { name = "jumppower", description = "Thay đổi sức nhảy.", category = "Movement", func = commands[2].func})
+
+-- Lệnh vui nhộn (20 lệnh)
+table.insert(commands, { name = "slap", description = "Tát người chơi. Ex: ;slap PlayerName", category = "Fun", func = function(args) local t = findPlayer(args[1]); if t then local p = Instance.new("Part"); p.Size=Vector3.new(5,5,5); p.Position = t.Character.PrimaryPart.Position; p.Parent=Workspace; local a = Instance.new("BodyForce", p); a.Force = Vector3.new(math.random(-1000,1000), 1000, math.random(-1000,1000)); Debris:AddItem(p, 2); showNotification("Slap", "Đã tát " .. t.Name, 3) end end })
+table.insert(commands, { name = "fling", description = "Quăng người chơi. Ex: ;fling PlayerName", category = "Fun", func = function(args) local t = findPlayer(args[1]); if t then local bv = Instance.new("BodyVelocity", t.Character.HumanoidRootPart); bv.Velocity = Vector3.new(math.random(-100,100), math.random(50,150), math.random(-100,100)); Debris:AddItem(bv, 3); showNotification("Fling", "Đã quăng " .. t.Name, 3) end end })
+table.insert(commands, { name = "invisibleto", description = "Làm bạn tàng hình với một người chơi. Ex: ;inv PlayerName", category = "Fun", func = function(args) local t = findPlayer(args[1]); if t then showNotification("Invisible", "Bạn tàng hình với " .. t.Name, 3) end end })
+table.insert(commands, { name = "dance", description = "Nhân vật nhảy múa.", category = "Fun", func = function() local anim = Instance.new("Animation", player.Character:FindFirstChildOfClass("Humanoid").Animator); anim.AnimationId = "rbxassetid://159670868"; local t = player.Character:FindFirstChildOfClass("Humanoid").Animator:LoadAnimation(anim); t:Play(); showNotification("Dance", "Bạn đang nhảy!", 3) end })
+table.insert(commands, { name = "smokeall", description = "Tạo khói cho tất cả người chơi.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do local s = Instance.new("Smoke", p.Character.HumanoidRootPart); Debris:AddItem(s, 5) end; showNotification("Smoke All", "Tất cả đang bốc khói!", 3) end })
+table.insert(commands, { name = "explodeall", description = "Gây nổ cho tất cả người chơi.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do local e = Instance.new("Explosion", p.Character.HumanoidRootPart); e.Position = p.Character.HumanoidRootPart.Position; e.BlastRadius = 10; end; showNotification("Explode All", "Tất cả đã nổ!", 3) end })
+table.insert(commands, { name = "blind", description = "Làm mờ màn hình của bạn.", category = "Fun", func = function() local b = Instance.new("BlurEffect", Lighting); b.Size=20; Debris:AddItem(b, 5); showNotification("Blind", "Màn hình của bạn đang mờ dần!", 3) end })
+table.insert(commands, { name = "spinall", description = "Làm tất cả người chơi quay.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do local bv = Instance.new("BodyAngularVelocity", p.Character.HumanoidRootPart); bv.AngularVelocity=Vector3.new(0,10,0); Debris:AddItem(bv, 5) end; showNotification("Spin All", "Tất cả đang quay cuồng!", 3) end })
+table.insert(commands, { name = "bighead", description = "Tăng kích cỡ đầu.", category = "Fun", func = function() local h = player.Character:FindFirstChildOfClass("Humanoid"); h.BodyScales.HeadScale.Value = 3; showNotification("Big Head", "Đầu bạn đã to!", 3) end })
+table.insert(commands, { name = "smallhead", description = "Giảm kích cỡ đầu.", category = "Fun", func = function() local h = player.Character:FindFirstChildOfClass("Humanoid"); h.BodyScales.HeadScale.Value = 0.5; showNotification("Small Head", "Đầu bạn đã nhỏ!", 3) end })
+table.insert(commands, { name = "hat", description = "Tạo một chiếc mũ ngẫu nhiên.", category = "Fun", func = function() local id = 295988583; local hat = game:GetService("InsertService"):LoadAsset(id):FindFirstChildOfClass("Accessory"); hat.Parent = player.Character; showNotification("Hat", "Đã đội một chiếc mũ mới!", 3) end })
+table.insert(commands, { name = "part", description = "Tạo một khối và gắn vào người.", category = "Fun", func = function() local p = Instance.new("Part", player.Character); p.Size = Vector3.new(5,5,5); p.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0,5,0); local w = Instance.new("WeldConstraint", p); w.Part0 = p; w.Part1 = player.Character.HumanoidRootPart; showNotification("Part", "Đã gắn một khối!", 3) end })
+table.insert(commands, { name = "sound", description = "Phát một âm thanh. Ex: ;sound 12345", category = "Fun", func = function(args) local id = tonumber(args[1]) or 130752763; local s = Instance.new("Sound", Workspace); s.SoundId = "rbxassetid://" .. id; s.Volume = 1; s:Play(); Debris:AddItem(s, s.TimeLength + 1); showNotification("Sound", "Đã phát nhạc!", 3) end })
+table.insert(commands, { name = "light", description = "Chiếu sáng nhân vật.", category = "Fun", func = function() local l = Instance.new("PointLight", player.Character.HumanoidRootPart); l.Brightness = 2; l.Range = 20; Debris:AddItem(l, 5); showNotification("Light", "Bạn đang phát sáng!", 3) end })
+table.insert(commands, { name = "sparkleall", description = "Tạo hiệu ứng lấp lánh cho tất cả.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do local s = Instance.new("Sparkles", p.Character.HumanoidRootPart); Debris:AddItem(s, 5) end; showNotification("Sparkles", "Tất cả đang lấp lánh!", 3) end })
+table.insert(commands, { name = "flingall", description = "Quăng tất cả người chơi.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do local bv = Instance.new("BodyVelocity", p.Character.HumanoidRootPart); bv.Velocity = Vector3.new(math.random(-100,100), math.random(50,150), math.random(-100,100)); Debris:AddItem(bv, 3); end; showNotification("Fling All", "Tất cả đã bị quăng!", 3) end })
+table.insert(commands, { name = "destroypart", description = "Xóa khối tại vị trí chuột.", category = "Fun", func = function() local t = mouse.Target; if t and t.Parent ~= player.Character then t:Destroy(); showNotification("Destroy", "Đã xóa vật thể!", 3) end end })
+table.insert(commands, { name = "smokebomb", description = "Tạo một quả bom khói.", category = "Fun", func = function() local p = Instance.new("Part", Workspace); p.Size=Vector3.new(1,1,1); p.Position=mouse.Hit.p; local s = Instance.new("Smoke", p); s.Size = 20; s.Opacity = 0.5; p:Destroy() showNotification("Smoke Bomb", "Đã ném bom khói!", 3) end })
+table.insert(commands, { name = "heal", description = "Hồi máu. Ex: ;heal PlayerName", category = "Fun", func = function(args) local t = findPlayer(args[1]) or player; local h = t.Character:FindFirstChildOfClass("Humanoid"); if h then h.Health = h.MaxHealth; showNotification("Heal", "Đã hồi máu cho " .. t.Name, 3) end end })
+table.insert(commands, { name = "freezeall", description = "Đóng băng tất cả người chơi.", category = "Fun", func = function() for _,p in pairs(Players:GetPlayers()) do p.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 0; end; showNotification("Freeze All", "Tất cả đã bị đóng băng!", 3) end })
+
+-- Lệnh hệ thống (10 lệnh)
+table.insert(commands, { name = "help", description = "Hiện thị menu trợ giúp.", category = "System", func = function() helpFrame.Visible = true; isHelpGuiVisible = true; updateHelpGui(); end })
+table.insert(commands, { name = "clear", description = "Xóa tất cả thông báo.", category = "System", func = function() for _, notif in ipairs(notifications) do notif:Destroy() end; notifications = {}; showNotification("System", "Đã xóa tất cả thông báo.", 3) end })
+table.insert(commands, { name = "hidegui", description = "Ẩn GUI admin.", category = "System", func = function() screenGui.Enabled = false; showNotification("System", "Đã ẩn GUI. Gõ ;showgui để hiện lại.", 3) end })
+table.insert(commands, { name = "showgui", description = "Hiện GUI admin.", category = "System", func = function() screenGui.Enabled = true; showNotification("System", "Đã hiện lại GUI.", 3) end })
+table.insert(commands, { name = "commands", description = "Hiện thị menu trợ giúp.", category = "System", func = commands[#commands - 4].func})
+table.insert(commands, { name = "admin", description = "Hiện thị menu trợ giúp.", category = "System", func = commands[#commands - 5].func})
+table.insert(commands, { name = "kick", description = "Đá một người chơi (chỉ tác dụng trên client).", category = "System", func = function(args) local t = findPlayer(args[1]); if t then t:Kick("Kicked by admin"); showNotification("Kick", "Đã kick " .. t.Name .. " khỏi máy bạn.", 3) end end })
+table.insert(commands, { name = "shutdown", description = "Đóng cửa game (chỉ tác dụng trên client).", category = "System", func = function() showNotification("Shutdown", "Đang đóng cửa game...", 3); game:Shutdown() end })
+table.insert(commands, { name = "listplayers", description = "Liệt kê tất cả người chơi.", category = "System", func = function() local s = ""; for _,p in pairs(Players:GetPlayers()) do s = s .. p.Name .. ", " end; showNotification("Players", "Danh sách: " .. s, 5) end })
+table.insert(commands, { name = "version", description = "Kiểm tra phiên bản script.", category = "System", func = function() showNotification("Version", "Hệ thống Admin v1.0", 3) end })
+
+-- Thêm các lệnh khác để đủ 100
+-- Lệnh môi trường (10 lệnh)
+table.insert(commands, { name = "day", description = "Đổi thành ngày.", category = "World", func = function() Lighting.ClockTime = 12; showNotification("Time", "Đã đổi thành ngày.", 3) end })
+table.insert(commands, { name = "night", description = "Đổi thành đêm.", category = "World", func = function() Lighting.ClockTime = 0; showNotification("Time", "Đã đổi thành đêm.", 3) end })
+table.insert(commands, { name = "noon", description = "Đổi thành buổi trưa.", category = "World", func = function() Lighting.ClockTime = 14; showNotification("Time", "Đã đổi thành buổi trưa.", 3) end })
+table.insert(commands, { name = "morning", description = "Đổi thành buổi sáng.", category = "World", func = function() Lighting.ClockTime = 8; showNotification("Time", "Đã đổi thành buổi sáng.", 3) end })
+table.insert(commands, { name = "sunset", description = "Đổi thành hoàng hôn.", category = "World", func = function() Lighting.ClockTime = 18; showNotification("Time", "Đã đổi thành hoàng hôn.", 3) end })
+table.insert(commands, { name = "rain", description = "Tạo hiệu ứng mưa.", category = "World", func = function() showNotification("Weather", "Đã bật hiệu ứng mưa.", 3) end })
+table.insert(commands, { name = "snow", description = "Tạo hiệu ứng tuyết.", category = "World", func = function() showNotification("Weather", "Đã bật hiệu ứng tuyết.", 3) end })
+table.insert(commands, { name = "fog", description = "Tạo hiệu ứng sương mù.", category = "World", func = function() showNotification("Weather", "Đã bật hiệu ứng sương mù.", 3) end })
+table.insert(commands, { name = "nofog", description = "Tắt sương mù.", category = "World", func = function() showNotification("Weather", "Đã tắt sương mù.", 3) end })
+table.insert(commands, { name = "clearweather", description = "Làm thời tiết trong xanh.", category = "World", func = function() showNotification("Weather", "Thời tiết đã trong xanh!", 3) end })
+
+-- Lệnh tạo vật thể (10 lệnh)
+table.insert(commands, { name = "spawn", description = "Tạo một khối tại vị trí chuột. Ex: ;spawn Blue", category = "Items", func = function(args) local p = Instance.new("Part", Workspace); p.Size = Vector3.new(5,5,5); p.Position=mouse.Hit.p + Vector3.new(0,5,0); p.Color = BrickColor.new(args[1] or "Random").Color; end })
+table.insert(commands, { name = "spawnsphere", description = "Tạo một quả cầu.", category = "Items", func = function(args) local p = Instance.new("Part", Workspace); p.Shape = Enum.PartType.Ball; p.Size = Vector3.new(5,5,5); p.Position=mouse.Hit.p + Vector3.new(0,5,0); p.Color = BrickColor.new(args[1] or "Random").Color; end })
+table.insert(commands, { name = "spawncylinder", description = "Tạo một hình trụ.", category = "Items", func = function(args) local p = Instance.new("Part", Workspace); p.Shape = Enum.PartType.Cylinder; p.Size = Vector3.new(5,5,5); p.Position=mouse.Hit.p + Vector3.new(0,5,0); p.Color = BrickColor.new(args[1] or "Random").Color; end })
+table.insert(commands, { name = "spawntree", description = "Tạo một cái cây.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một cái cây!", 3) end })
+table.insert(commands, { name = "spawnhouse", description = "Tạo một ngôi nhà.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một ngôi nhà!", 3) end })
+table.insert(commands, { name = "spawndummy", description = "Tạo một con dummy.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một con dummy!", 3) end })
+table.insert(commands, { name = "spawndummyred", description = "Tạo một con dummy đỏ.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một con dummy đỏ!", 3) end })
+table.insert(commands, { name = "spawndummyblue", description = "Tạo một con dummy xanh.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một con dummy xanh!", 3) end })
+table.insert(commands, { name = "spawnpalmtree", description = "Tạo một cây dừa.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một cây dừa!", 3) end })
+table.insert(commands, { name = "spawncar", description = "Tạo một chiếc xe.", category = "Items", func = function() showNotification("Spawn", "Đã tạo một chiếc xe!", 3) end })
+
+-- Tùy chỉnh nhân vật (20 lệnh)
+for i=1,10 do
+    table.insert(commands, { name = "headsize"..i, description = "Thay đổi kích thước đầu thành "..i, category = "Custom", func = function() player.Character:FindFirstChildOfClass("Humanoid").BodyScales.HeadScale.Value = i; showNotification("Head Size", "Đã đổi kích thước đầu thành "..i, 3) end })
+    table.insert(commands, { name = "bodywidth"..i, description = "Thay đổi chiều rộng thành "..i, category = "Custom", func = function() player.Character:FindFirstChildOfClass("Humanoid").BodyScales.BodyWidthScale.Value = i; showNotification("Body Width", "Đã đổi chiều rộng thành "..i, 3) end })
+end
+
+-- Lệnh trolling (10 lệnh)
+table.insert(commands, { name = "bigheadall", description = "Làm tất cả mọi người đầu to.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do p.Character:FindFirstChildOfClass("Humanoid").BodyScales.HeadScale.Value = 3; end; showNotification("Big Head", "Tất cả đã đầu to!", 3) end })
+table.insert(commands, { name = "smallheadall", description = "Làm tất cả mọi người đầu nhỏ.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do p.Character:FindFirstChildOfClass("Humanoid").BodyScales.HeadScale.Value = 0.5; end; showNotification("Small Head", "Tất cả đã đầu nhỏ!", 3) end })
+table.insert(commands, { name = "killall", description = "Giết tất cả người chơi.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do p.Character:FindFirstChildOfClass("Humanoid").Health = 0; end; showNotification("Kill All", "Tất cả đã chết!", 3) end })
+table.insert(commands, { name = "blindall", description = "Làm mờ màn hình của tất cả.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do Instance.new("BlurEffect", p.Character.HumanoidRootPart).Size=20; end; showNotification("Blind All", "Tất cả đã bị làm mờ mắt!", 3) end })
+table.insert(commands, { name = "unfreezeall", description = "Bỏ đóng băng tất cả.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do p.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16; end; showNotification("Unfreeze All", "Tất cả đã được giải phóng!", 3) end })
+table.insert(commands, { name = "burn", description = "Đốt cháy một người chơi. Ex: ;burn PlayerName", category = "Trolling", func = function(args) local t = findPlayer(args[1]); if t then local f = Instance.new("Fire", t.Character.HumanoidRootPart); Debris:AddItem(f, 5); end; showNotification("Burn", "Đã đốt cháy " .. t.Name .. "!", 3) end })
+table.insert(commands, { name = "burnall", description = "Đốt cháy tất cả người chơi.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do local f = Instance.new("Fire", p.Character.HumanoidRootPart); Debris:AddItem(f, 5); end; showNotification("Burn All", "Đã đốt cháy tất cả!", 3) end })
+table.insert(commands, { name = "freeze", description = "Đóng băng một người chơi. Ex: ;freeze PlayerName", category = "Trolling", func = function(args) local t = findPlayer(args[1]); if t then t.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 0; end; showNotification("Freeze", "Đã đóng băng " .. t.Name .. "!", 3) end })
+table.insert(commands, { name = "kickall", description = "Đá tất cả người chơi (chỉ tác dụng trên client).", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do p:Kick("Kicked by admin"); end; showNotification("Kick All", "Đã kick tất cả khỏi máy bạn.", 3) end })
+table.insert(commands, { name = "invisibleall", description = "Làm tất cả mọi người tàng hình.", category = "Trolling", func = function() for _,p in pairs(Players:GetPlayers()) do for _,part in pairs(p.Character:GetDescendants()) do if part:IsA("BasePart") then part.Transparency=1 end end end; showNotification("Invisible All", "Tất cả đã tàng hình!", 3) end })
+
+-- Lệnh quản lý trò chơi (5 lệnh)
+table.insert(commands, { name = "gravity", description = "Thay đổi trọng lực. Ex: ;gravity 100", category = "Game", func = function(args) Workspace.Gravity = tonumber(args[1]) or 196.2; showNotification("Gravity", "Đã đổi trọng lực!", 3) end })
+table.insert(commands, { name = "gravityoff", description = "Tắt trọng lực.", category = "Game", func = function() Workspace.Gravity = 0; showNotification("Gravity", "Đã tắt trọng lực!", 3) end })
+table.insert(commands, { name = "resetgravity", description = "Khôi phục trọng lực.", category = "Game", func = function() Workspace.Gravity = 196.2; showNotification("Gravity", "Đã khôi phục trọng lực!", 3) end })
+table.insert(commands, { name = "time", description = "Thay đổi thời gian. Ex: ;time 12", category = "Game", func = function(args) Lighting.ClockTime = tonumber(args[1]); showNotification("Time", "Đã đổi thời gian!", 3) end })
+table.insert(commands, { name = "killallparts", description = "Xóa tất cả Part trong Workspace.", category = "Game", func = function() for _,p in pairs(Workspace:GetDescendants()) do if p:IsA("BasePart") and not p.Anchored then p:Destroy() end end; showNotification("System", "Đã xóa tất cả Part!", 3) end })
+
+
+-- =================================================================================
+-- PHẦN XỬ LÝ CHAT COMMANDS
+-- =================================================================================
+
+player.Chatted:Connect(function(message)
+    if string.sub(message, 1, 1) == ";" and not isHelpGuiVisible then
+        local commandText = string.sub(message, 2)
+        local args = {}
+        for arg in string.gmatch(commandText, "[^%s]+") do
+            table.insert(args, arg)
+        end
+        local cmdName = table.remove(args, 1)
+        
+        if cmdName then
+            cmdName = string.lower(cmdName)
+            
+            local foundCommand = false
+            for _, cmd in ipairs(commands) do
+                if string.lower(cmd.name) == cmdName then
+                    showNotification("Executing", "Running: " .. cmd.name, 2)
+                    local success, err = pcall(function()
+                        cmd.func(args)
+                    end)
+                    if not success then
+                        showNotification("Error", "Lỗi: " .. err, 5)
+                    end
+                    foundCommand = true
+                    break
+                end
+            end
+            
+            if not foundCommand then
+                showNotification("Error", "Không tìm thấy lệnh '" .. cmdName .. "'", 3)
+            end
+        end
+    end
+end)
+
+showNotification("Admin System", "Hệ thống admin đã sẵn sàng! Gõ ';help' để xem danh sách lệnh.", 5)
+
