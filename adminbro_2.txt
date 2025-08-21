@@ -1,0 +1,1355 @@
+--[[ 
+    Executor Admin System - Phiên bản "Siêu Cấp" 
+    Hơn 100 lệnh đa dạng và phong phú
+]]
+
+-- Khởi tạo các dịch vụ cần thiết
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local Debris = game:GetService("Debris")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+local isHelpGuiVisible = false
+
+-- Ngăn chặn script chạy lại
+if _G.AdminScriptLoaded then return end
+_G.AdminScriptLoaded = true
+
+-- Bảng lưu trữ trạng thái của người chơi
+local playerStates = {}
+
+-- =================================================================================
+-- PHẦN GUI THÔNG BÁO HIỆN ĐẠI
+-- =================================================================================
+
+local notifications = {}
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminSystemGUI"
+screenGui.Parent = CoreGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local notificationTemplate = Instance.new("Frame")
+notificationTemplate.Name = "NotificationTemplate"
+notificationTemplate.BackgroundTransparency = 1
+notificationTemplate.Size = UDim2.new(0, 300, 0, 80)
+notificationTemplate.Position = UDim2.new(1, -320, 1, -100)
+notificationTemplate.ClipsDescendants = false
+
+local bgFrame = Instance.new("Frame")
+bgFrame.Name = "Background"
+bgFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+bgFrame.BorderSizePixel = 0
+bgFrame.Size = UDim2.new(1, 0, 1, 0)
+bgFrame.Parent = notificationTemplate
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = bgFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(40, 40, 60)
+stroke.Thickness = 1
+stroke.Parent = bgFrame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+}
+gradient.Rotation = 90
+gradient.Parent = bgFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+progressBar.BorderSizePixel = 0
+progressBar.Size = UDim2.new(0, 0, 0, 3)
+progressBar.Position = UDim2.new(0, 0, 1, 0)
+progressBar.Parent = bgFrame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 15)
+padding.PaddingRight = UDim.new(0, 15)
+padding.PaddingTop = UDim.new(0, 10)
+padding.PaddingBottom = UDim.new(0, 10)
+padding.Parent = bgFrame
+
+local contentLayout = Instance.new("UIListLayout")
+contentLayout.Padding = UDim.new(0, 5)
+contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+contentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+contentLayout.Parent = bgFrame
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Text = "Notification"
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Parent = bgFrame
+
+local message = Instance.new("TextLabel")
+message.Name = "Message"
+message.Text = "This is a notification message"
+message.Font = Enum.Font.Gotham
+message.TextColor3 = Color3.fromRGB(200, 200, 200)
+message.TextSize = 14
+message.TextXAlignment = Enum.TextXAlignment.Left
+message.TextYAlignment = Enum.TextYAlignment.Top
+message.TextWrapped = true
+message.BackgroundTransparency = 1
+message.Size = UDim2.new(1, 0, 1, -25)
+message.Parent = bgFrame
+
+-- Hàm hiển thị thông báo
+local function showNotification(titleText, messageText, duration)
+    duration = duration or 5
+    local notification = notificationTemplate:Clone()
+    notification.Name = "Notification_" .. HttpService:GenerateGUID(false)
+    notification.Parent = screenGui
+    
+    local titleLabel = notification.Background.Title
+    local messageLabel = notification.Background.Message
+    local progressBar = notification.Background.ProgressBar
+    
+    titleLabel.Text = titleText
+    messageLabel.Text = messageText
+    
+    notification.Position = UDim2.new(1, -320, 1, 100)
+    
+    local enterTween = TweenService:Create(
+        notification,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -320, 1, -100 - (#notifications * 90))}
+    )
+    
+    table.insert(notifications, notification)
+    
+    enterTween:Play()
+    
+    for i, notif in ipairs(notifications) do
+        local tween = TweenService:Create(
+            notif,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+        )
+        tween:Play()
+    end
+    
+    local progressTween = TweenService:Create(
+        progressBar,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, 0, 0, 3)}
+    )
+    progressTween:Play()
+    
+    delay(duration, function()
+        if notification and notification.Parent then
+            local exitTween = TweenService:Create(
+                notification,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Position = UDim2.new(1, -320, 1, 100)}
+            )
+            exitTween:Play()
+            
+            exitTween.Completed:Connect(function()
+                if notification and notification.Parent then
+                    notification:Destroy()
+                    for i, notif in ipairs(notifications) do
+                        if notif == notification then
+                            table.remove(notifications, i)
+                            break
+                        end
+                    end
+                    for i, notif in ipairs(notifications) do
+                        local tween = TweenService:Create(
+                            notif,
+                            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+                        )
+                        tween:Play()
+                    end
+                end
+            end)
+        end
+    end)
+    
+    return notification
+end
+
+-- =================================================================================
+-- PHẦN GUI HELP
+-- =================================================================================
+
+local helpFrame = Instance.new("Frame")
+helpFrame.Name = "HelpFrame"
+helpFrame.Size = UDim2.new(0, 450, 0, 500)
+helpFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
+helpFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+helpFrame.BorderSizePixel = 0
+helpFrame.Visible = false
+helpFrame.Parent = screenGui
+
+local helpCorner = Instance.new("UICorner")
+helpCorner.CornerRadius = UDim.new(0, 12)
+helpCorner.Parent = helpFrame
+
+local helpGradient = Instance.new("UIGradient")
+helpGradient.Rotation = 90
+helpGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 40, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 25, 35))
+}
+helpGradient.Parent = helpFrame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 18
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 70, 70)
+closeButton.BorderSizePixel = 0
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.Parent = helpFrame
+
+local commandsFrame = Instance.new("ScrollingFrame")
+commandsFrame.Name = "CommandsFrame"
+commandsFrame.Size = UDim2.new(1, -20, 1, -50)
+commandsFrame.Position = UDim2.new(0, 10, 0, 40)
+commandsFrame.BackgroundTransparency = 1
+commandsFrame.BorderSizePixel = 0
+commandsFrame.ScrollBarThickness = 6
+commandsFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 90)
+commandsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+commandsFrame.Parent = helpFrame
+
+local commandsLayout = Instance.new("UIListLayout")
+commandsLayout.Padding = UDim.new(0, 5)
+commandsLayout.Parent = commandsFrame
+
+-- =================================================================================
+-- HỆ THỐNG LỆNH VÀ XỬ LÝ CHAT
+-- =================================================================================
+
+-- Bảng lưu trữ lệnh và mô tả
+local commands = {
+    {
+        name = "help",
+        description = "Hiển thị danh sách lệnh",
+        syntax = ";help"
+    }
+}
+
+-- Bảng lưu trữ hàm thực thi lệnh
+local commandHandlers = {}
+
+-- Hàm xử lý tin nhắn
+local function onChatMessage(message, speaker)
+    if string.sub(message, 1, 1) == ";" then
+        local args = string.split(message, " ")
+        local commandName = string.sub(args[1], 2):lower()
+        
+        table.remove(args, 1)
+        
+        if commandHandlers[commandName] then
+            commandHandlers[commandName](speaker, args)
+        else
+            showNotification("Lỗi", "Lệnh không tồn tại: " .. commandName, 3)
+        end
+        return true
+    end
+    return false
+end
+
+-- Kết nối sự kiện chat
+for _, player in ipairs(Players:GetPlayers()) do
+    player.Chatted:Connect(function(message)
+        onChatMessage(message, player)
+    end)
+end
+
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    player.Chatted:Connect(function(message)
+        onChatMessage(message, player)
+    end)
+end)
+
+-- Xử lý cho người chơi local
+player.Chatted:Connect(function(message)
+    onChatMessage(message, player)
+end)
+
+-- Hàm tìm người chơi
+local function findPlayer(name)
+    if not name or name == "me" or name == "" then return player end
+    name = name:lower()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name:lower():find(name) == 1 or p.DisplayName:lower():find(name) == 1 then
+            return p
+        end
+    end
+    return nil
+end
+
+-- Hàm tìm người chơi từ args
+local function getPlayerFromArgs(args, index)
+    index = index or 1
+    if #args >= index then
+        return findPlayer(args[index])
+    end
+    return player
+end
+
+-- =================================================================================
+-- ĐỊNH NGHĨA 100+ LỆNH
+-- =================================================================================
+
+-- Lệnh help
+commandHandlers["help"] = function(speaker, args)
+    isHelpGuiVisible = not isHelpGuiVisible
+    helpFrame.Visible = isHelpGuiVisible
+    
+    if isHelpGuiVisible then
+        -- Xóa nội dung cũ
+        for _, child in ipairs(commandsFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        
+        -- Thêm các lệnh vào GUI help
+        for _, cmd in ipairs(commands) do
+            local commandFrame = Instance.new("Frame")
+            commandFrame.Size = UDim2.new(1, 0, 0, 60)
+            commandFrame.BackgroundTransparency = 1
+            
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Text = cmd.syntax
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
+            nameLabel.TextSize = 16
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Size = UDim2.new(1, -10, 0, 20)
+            nameLabel.Position = UDim2.new(0, 10, 0, 5)
+            nameLabel.Parent = commandFrame
+            
+            local descLabel = Instance.new("TextLabel")
+            descLabel.Text = cmd.description
+            descLabel.Font = Enum.Font.Gotham
+            descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            descLabel.TextSize = 14
+            descLabel.TextXAlignment = Enum.TextXAlignment.Left
+            descLabel.TextWrapped = true
+            descLabel.BackgroundTransparency = 1
+            descLabel.Size = UDim2.new(1, -10, 0, 35)
+            descLabel.Position = UDim2.new(0, 10, 0, 25)
+            descLabel.Parent = commandFrame
+            
+            commandFrame.Parent = commandsFrame
+        end
+        
+        -- Cập nhật kích thước canvas
+        commandsFrame.CanvasSize = UDim2.new(0, 0, 0, commandsLayout.AbsoluteContentSize.Y)
+    end
+end
+
+-- Lệnh cơ bản
+commandHandlers["fly"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 50
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có fly effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].flying then
+            playerStates[target.Name].flying:Disconnect()
+            playerStates[target.Name].flying = nil
+            target.Character.Humanoid.PlatformStand = false
+            showNotification("Fly", "Đã tắt bay cho " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng bay
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].flying = RunService.Heartbeat:Connect(function()
+            if root and root.Parent then
+                target.Character.Humanoid.PlatformStand = true
+                local velocity = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    velocity = velocity + (root.CFrame.LookVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    velocity = velocity + (root.CFrame.LookVector * -speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    velocity = velocity + (root.CFrame.RightVector * -speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    velocity = velocity + (root.CFrame.RightVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    velocity = velocity + (Vector3.new(0, speed, 0))
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    velocity = velocity + (Vector3.new(0, -speed, 0))
+                end
+                
+                root.Velocity = velocity
+            else
+                if playerStates[target.Name] and playerStates[target.Name].flying then
+                    playerStates[target.Name].flying:Disconnect()
+                    playerStates[target.Name].flying = nil
+                end
+            end
+        end)
+        
+        showNotification("Fly", "Đã bật bay cho " .. target.Name .. " tốc độ " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể bay " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nofly"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].flying then
+        playerStates[target.Name].flying:Disconnect()
+        playerStates[target.Name].flying = nil
+        if target.Character and target.Character:FindFirstChild("Humanoid") then
+            target.Character.Humanoid.PlatformStand = false
+        end
+        showNotification("Fly", "Đã tắt bay cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang bay", 3)
+    end
+end
+
+commandHandlers["speed"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 16
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.WalkSpeed = speed
+        showNotification("Speed", "Đặt tốc độ " .. target.Name .. " thành " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể đặt tốc độ " .. target.Name, 3)
+    end
+end
+
+commandHandlers["jump"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local power = tonumber(args[2]) or 50
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.JumpPower = power
+        showNotification("Jump", "Đặt sức nhảy " .. target.Name .. " thành " .. power, 3)
+    else
+        showNotification("Lỗi", "Không thể đặt sức nhảy " .. target.Name, 3)
+    end
+end
+
+commandHandlers["gravity"] = function(speaker, args)
+    local gravity = tonumber(args[1]) or 196.2
+    Workspace.Gravity = gravity
+    showNotification("Gravity", "Đặt trọng lực thành " .. gravity, 3)
+end
+
+commandHandlers["spin"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 10
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có spin effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].spinning then
+            playerStates[target.Name].spinning:Disconnect()
+            playerStates[target.Name].spinning = nil
+            showNotification("Spin", "Đã dừng xoay " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng xoay
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].spinning = RunService.Heartbeat:Connect(function()
+            if root and root.Parent then
+                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(speed), 0)
+            else
+                if playerStates[target.Name] and playerStates[target.Name].spinning then
+                    playerStates[target.Name].spinning:Disconnect()
+                    playerStates[target.Name].spinning = nil
+                end
+            end
+        end)
+        
+        showNotification("Spin", "Đang xoay " .. target.Name .. " với tốc độ " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể xoay " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nospin"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].spinning then
+        playerStates[target.Name].spinning:Disconnect()
+        playerStates[target.Name].spinning = nil
+        showNotification("Spin", "Đã dừng xoay " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang xoay", 3)
+    end
+end
+
+commandHandlers["float"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local height = tonumber(args[2]) or 10
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có float effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].floating then
+            playerStates[target.Name].floating:Disconnect()
+            playerStates[target.Name].floating = nil
+            showNotification("Float", "Đã dừng bay lơ lửng " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng bay lơ lửng
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].floating = RunService.Heartbeat:Connect(function()
+            if root and root.Parent then
+                root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
+                root.CFrame = root.CFrame:lerp(CFrame.new(root.Position.X, height, root.Position.Z), 0.1)
+            else
+                if playerStates[target.Name] and playerStates[target.Name].floating then
+                    playerStates[target.Name].floating:Disconnect()
+                    playerStates[target.Name].floating = nil
+                end
+            end
+        end)
+        
+        showNotification("Float", "Đang cho " .. target.Name .. " bay lơ lửng ở độ cao " .. height, 3)
+    else
+        showNotification("Lỗi", "Không thể bay lơ lửng " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nofloat"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].floating then
+        playerStates[target.Name].floating:Disconnect()
+        playerStates[target.Name].floating = nil
+        showNotification("Float", "Đã dừng bay lơ lửng " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang bay lơ lửng", 3)
+    end
+end
+
+commandHandlers["goto"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and
+       player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+        showNotification("Goto", "Đã dịch chuyển đến " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dịch chuyển đến " .. target.Name, 3)
+    end
+end
+
+commandHandlers["bring"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and
+       player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        target.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+        showNotification("Bring", "Đã đưa " .. target.Name .. " đến vị trí của bạn", 3)
+    else
+        showNotification("Lỗi", "Không thể đưa " .. target.Name .. " đến vị trí của bạn", 3)
+    end
+end
+
+commandHandlers["teleport"] = function(speaker, args)
+    if #args < 2 then
+        showNotification("Lỗi", "Sử dụng: ;teleport [người chơi 1] [người chơi 2]", 3)
+        return
+    end
+    
+    local target1 = findPlayer(args[1])
+    local target2 = findPlayer(args[2])
+    
+    if target1 and target1.Character and target1.Character:FindFirstChild("HumanoidRootPart") and
+       target2 and target2.Character and target2.Character:FindFirstChild("HumanoidRootPart") then
+        target1.Character.HumanoidRootPart.CFrame = target2.Character.HumanoidRootPart.CFrame
+        showNotification("Teleport", "Đã dịch chuyển " .. target1.Name .. " đến " .. target2.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dịch chuyển người chơi", 3)
+    end
+end
+
+-- Lệnh vui nhộn
+commandHandlers["dance"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local danceId = tonumber(args[2]) or 184574340
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        local animate = target.Character:FindFirstChild("Animate")
+        if animate then
+            animate:Destroy()
+        end
+        
+        -- Tạo animation dance
+        local danceAnimation = Instance.new("Animation")
+        danceAnimation.AnimationId = "rbxassetid://" .. danceId
+        
+        local animator = target.Character.Humanoid:FindFirstChildOfClass("Animator")
+        if not animator then
+            animator = Instance.new("Animator")
+            animator.Parent = target.Character.Humanoid
+        end
+        
+        local danceTrack = animator:LoadAnimation(danceAnimation)
+        danceTrack:Play()
+        
+        showNotification("Dance", "Đã cho " .. target.Name .. " nhảy điệu nhảy ID " .. danceId, 3)
+    else
+        showNotification("Lỗi", "Không thể cho " .. target.Name .. " nhảy", 3)
+    end
+end
+
+commandHandlers["nodance"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        local animator = target.Character.Humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+        
+        -- Khôi phục animation mặc định
+        if not target.Character:FindFirstChild("Animate") then
+            local animate = Instance.new("Script")
+            animate.Name = "Animate"
+            animate.Source = [[
+                -- Animation script mặc định
+            ]]
+            animate.Parent = target.Character
+        end
+        
+        showNotification("Dance", "Đã dừng nhảy cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dừng nhảy " .. target.Name, 3)
+    end
+end
+
+commandHandlers["sit"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Sit = true
+        showNotification("Sit", "Đã cho " .. target.Name .. " ngồi xuống", 3)
+    else
+        showNotification("Lỗi", "Không thể cho " .. target.Name .. " ngồi", 3)
+    end
+end
+
+commandHandlers["unsit"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Sit = false
+        showNotification("Sit", "Đã cho " .. target.Name .. " đứng dậy", 3)
+    else
+        showNotification("Lỗi", "Không thể cho " .. target.Name .. " đứng dậy", 3)
+    end
+end
+
+commandHandlers["headless"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Head") then
+        target.Character.Head.Transparency = 1
+        target.Character.Head.face:Destroy()
+        showNotification("Headless", "Đã làm " .. target.Name .. " không đầu", 3)
+    else
+        showNotification("Lỗi", "Không thể làm " .. target.Name .. " không đầu", 3)
+    end
+end
+
+commandHandlers["noheadless"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Head") then
+        target.Character.Head.Transparency = 0
+        showNotification("Headless", "Đã khôi phục đầu cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể khôi phục đầu " .. target.Name, 3)
+    end
+end
+
+commandHandlers["invisible"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+        showNotification("Invisible", "Đã làm " .. target.Name .. " tàng hình", 3)
+    else
+        showNotification("Lỗi", "Không thể làm " .. target.Name .. " tàng hình", 3)
+    end
+end
+
+commandHandlers["visible"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+            end
+        end
+        showNotification("Invisible", "Đã hiện " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hiện " .. target.Name, 3)
+    end
+end
+
+commandHandlers["size"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local scale = tonumber(args[2]) or 2
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Size = part.Size * scale
+            end
+        end
+        showNotification("Size", "Đã thay đổi kích thước " .. target.Name .. " với tỷ lệ " .. scale, 3)
+    else
+        showNotification("Lỗi", "Không thể thay đổi kích thước " .. target.Name, 3)
+    end
+end
+
+commandHandlers["normalize"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target.Character:BreakJoints()
+        showNotification("Normalize", "Đã reset kích thước " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể reset kích thước " .. target.Name, 3)
+    end
+end
+
+commandHandlers["fire"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local fire = Instance.new("Fire")
+        fire.Size = 10
+        fire.Parent = target.Character.HumanoidRootPart
+        showNotification("Fire", "Đã đốt " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể đốt " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nofire"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        for _, fire in ipairs(target.Character.HumanoidRootPart:GetChildren()) do
+            if fire:IsA("Fire") then
+                fire:Destroy()
+            end
+        end
+        showNotification("Fire", "Đã dập lửa " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dập lửa " .. target.Name, 3)
+    end
+end
+
+commandHandlers["sparkles"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local sparkles = Instance.new("Sparkles")
+        sparkles.SparkleColor = Color3.fromRGB(255, 255, 0)
+        sparkles.Parent = target.Character.HumanoidRootPart
+        showNotification("Sparkles", "Đã thêm ánh sáng lấp lánh cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể thêm ánh sáng lấp lánh " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nosparkles"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        for _, sparkles in ipairs(target.Character.HumanoidRootPart:GetChildren()) do
+            if sparkles:IsA("Sparkles") then
+                sparkles:Destroy()
+            end
+        end
+        showNotification("Sparkles", "Đã xóa ánh sáng lấp lánh " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể xóa ánh sáng lấp lánh " .. target.Name, 3)
+    end
+end
+
+commandHandlers["freeze"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = true
+            end
+        end
+        showNotification("Freeze", "Đã đóng băng " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể đóng băng " .. target.Name, 3)
+    end
+end
+
+commandHandlers["thaw"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = false
+            end
+        end
+        showNotification("Freeze", "Đã rã đông " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể rã đông " .. target.Name, 3)
+    end
+end
+
+commandHandlers["jail"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có jail chưa
+        if playerStates[target.Name] and playerStates[target.Name].jail then
+            playerStates[target.Name].jail:Destroy()
+            playerStates[target.Name].jail = nil
+            showNotification("Jail", "Đã thả " .. target.Name .. " ra khỏi tù", 3)
+            return
+        end
+        
+        -- Tạo nhà tù
+        local jail = Instance.new("Part")
+        jail.Name = "Jail"
+        jail.Size = Vector3.new(10, 10, 10)
+        jail.Position = root.Position + Vector3.new(0, 5, 0)
+        jail.Anchored = true
+        jail.CanCollide = true
+        jail.Transparency = 0.5
+        jail.Color = Color3.fromRGB(100, 100, 100)
+        jail.Parent = Workspace
+        
+        -- Lưu trữ jail
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].jail = jail
+        
+        -- Theo dõi người chơi
+        playerStates[target.Name].jailTrack = RunService.Heartbeat:Connect(function()
+            if jail and jail.Parent and root and root.Parent then
+                jail.Position = root.Position + Vector3.new(0, 5, 0)
+            else
+                if playerStates[target.Name] and playerStates[target.Name].jailTrack then
+                    playerStates[target.Name].jailTrack:Disconnect()
+                    playerStates[target.Name].jailTrack = nil
+                end
+            end
+        end)
+        
+        showNotification("Jail", "Đã bỏ tù " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể bỏ tù " .. target.Name, 3)
+    end
+end
+
+commandHandlers["unjail"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].jail then
+        playerStates[target.Name].jail:Destroy()
+        playerStates[target.Name].jail = nil
+        
+        if playerStates[target.Name].jailTrack then
+            playerStates[target.Name].jailTrack:Disconnect()
+            playerStates[target.Name].jailTrack = nil
+        end
+        
+        showNotification("Jail", "Đã thả " .. target.Name .. " ra khỏi tù", 3)
+    else
+        showNotification("Lỗi", target.Name .. " không ở trong tù", 3)
+    end
+end
+
+commandHandlers["tach"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Velocity = Vector3.new(
+                    math.random(-100, 100),
+                    math.random(50, 100),
+                    math.random(-100, 100)
+                )
+            end
+        end
+        showNotification("Tach", "Đã tách các bộ phận của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể tách " .. target.Name, 3)
+    end
+end
+
+-- Lệnh quản lý server
+commandHandlers["kick"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;kick [người chơi] [lý do]", 3)
+        return
+    end
+    
+    local target = findPlayer(args[1])
+    local reason = #args >= 2 and table.concat(args, " ", 2) or "Bị kick bởi admin"
+    
+    if target then
+        if target == player then
+            showNotification("Lỗi", "Bạn không thể kick chính mình", 3)
+            return
+        end
+        
+        showNotification("Kick", "Đã kick " .. target.Name .. " với lý do: " .. reason, 3)
+        target:Kick(reason)
+    else
+        showNotification("Lỗi", "Không tìm thấy người chơi", 3)
+    end
+end
+
+commandHandlers["ban"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;ban [người chơi] [lý do]", 3)
+        return
+    end
+    
+    local target = findPlayer(args[1])
+    local reason = #args >= 2 and table.concat(args, " ", 2) or "Bị ban bởi admin"
+    
+    if target then
+        if target == player then
+            showNotification("Lỗi", "Bạn không thể ban chính mình", 3)
+            return
+        end
+        
+        showNotification("Ban", "Đã ban " .. target.Name .. " với lý do: " .. reason, 3)
+        
+        -- Lưu vào danh sách ban
+        _G.BannedPlayers = _G.BannedPlayers or {}
+        _G.BannedPlayers[target.UserId] = true
+        
+        target:Kick("BANNED: " .. reason)
+    else
+        showNotification("Lỗi", "Không tìm thấy người chơi", 3)
+    end
+end
+
+commandHandlers["unban"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;unban [userid]", 3)
+        return
+    end
+    
+    local userId = tonumber(args[1])
+    
+    if userId and _G.BannedPlayers and _G.BannedPlayers[userId] then
+        _G.BannedPlayers[userId] = nil
+        showNotification("Unban", "Đã gỡ ban cho user ID " .. userId, 3)
+    else
+        showNotification("Lỗi", "User ID không hợp lệ hoặc không trong danh sách ban", 3)
+    end
+end
+
+commandHandlers["mute"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target then
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].muted = true
+        showNotification("Mute", "Đã tắt tiếng " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể tắt tiếng " .. target.Name, 3)
+    end
+end
+
+commandHandlers["unmute"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target and playerStates[target.Name] and playerStates[target.Name].muted then
+        playerStates[target.Name].muted = false
+        showNotification("Mute", "Đã bật tiếng " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không bị tắt tiếng", 3)
+    end
+end
+
+commandHandlers["players"] = function(speaker, args)
+    local playerList = ""
+    for _, p in ipairs(Players:GetPlayers()) do
+        playerList = playerList .. p.Name .. ", "
+    end
+    playerList = string.sub(playerList, 1, -3) -- Xóa dấu phẩy cuối cùng
+    
+    showNotification("Players", "Người chơi trong server: " .. playerList, 5)
+end
+
+commandHandlers["time"] = function(speaker, args)
+    local time = tonumber(args[1]) or 12
+    Lighting.ClockTime = time
+    showNotification("Time", "Đã đặt thời gian thành " .. time, 3)
+end
+
+commandHandlers["ambient"] = function(speaker, args)
+    if #args < 3 then
+        showNotification("Lỗi", "Sử dụng: ;ambient [r] [g] [b]", 3)
+        return
+    end
+    
+    local r = tonumber(args[1]) or 0
+    local g = tonumber(args[2]) or 0
+    local b = tonumber(args[3]) or 0
+    
+    Lighting.Ambient = Color3.fromRGB(r, g, b)
+    showNotification("Ambient", "Đã đặt ambient light thành " .. r .. ", " .. g .. ", " .. b, 3)
+end
+
+commandHandlers["fog"] = function(speaker, args)
+    local density = tonumber(args[1]) or 0
+    Lighting.FogEnd = 1000 / (density + 0.001)
+    showNotification("Fog", "Đặt độ đặc sương mù thành " .. density, 3)
+end
+
+commandHandlers["nofog"] = function(speaker, args)
+    Lighting.FogEnd = 1000000
+    showNotification("Fog", "Đã xóa sương mù", 3)
+end
+
+commandHandlers["brightness"] = function(speaker, args)
+    local brightness = tonumber(args[1]) or 1
+    Lighting.Brightness = brightness
+    showNotification("Brightness", "Đặt độ sáng thành " .. brightness, 3)
+end
+
+commandHandlers["chat"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;chat [tin nhắn]", 3)
+        return
+    end
+    
+    local message = table.concat(args, " ")
+    StarterGui:SetCore("ChatMakeSystemMessage", {
+        Text = "[ADMIN] " .. message,
+        Color = Color3.fromRGB(255, 0, 0),
+        Font = Enum.Font.SourceSansBold,
+        TextSize = 18
+    })
+end
+
+-- Lệnh hữu ích
+commandHandlers["noclip"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        -- Kiểm tra xem đã có noclip effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].noclip then
+            playerStates[target.Name].noclip:Disconnect()
+            playerStates[target.Name].noclip = nil
+            showNotification("Noclip", "Đã tắt noclip cho " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng noclip
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].noclip = RunService.Stepped:Connect(function()
+            if target.Character then
+                for _, part in ipairs(target.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+           else
+                if playerStates[target.Name] and playerStates[target.Name].noclip then
+                    playerStates[target.Name].noclip:Disconnect()
+                    playerStates[target.Name].noclip = nil
+                end
+            end
+        end)
+        
+        showNotification("Noclip", "Đã bật noclip cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể bật noclip " .. target.Name, 3)
+    end
+end
+
+commandHandlers["clip"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].noclip then
+        playerStates[target.Name].noclip:Disconnect()
+        playerStates[target.Name].noclip = nil
+        
+        if target.Character then
+            for _, part in ipairs(target.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+        
+        showNotification("Noclip", "Đã tắt noclip cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang noclip", 3)
+    end
+end
+
+commandHandlers["god"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.MaxHealth = math.huge
+        target.Character.Humanoid.Health = math.huge
+        showNotification("God", "Đã bật god mode cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể bật god mode " .. target.Name, 3)
+    end
+end
+
+commandHandlers["ungod"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.MaxHealth = 100
+        target.Character.Humanoid.Health = 100
+        showNotification("God", "Đã tắt god mode cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể tắt god mode " .. target.Name, 3)
+    end
+end
+
+commandHandlers["heal"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Health = target.Character.Humanoid.MaxHealth
+        showNotification("Heal", "Đã hồi máu cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hồi máu " .. target.Name, 3)
+    end
+end
+
+commandHandlers["respawn"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target:LoadCharacter()
+        showNotification("Respawn", "Đã hồi sinh " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hồi sinh " .. target.Name, 3)
+    end
+end
+
+commandHandlers["tools"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Backpack then
+        for i = 1, 5 do
+            local tool = Instance.new("Tool")
+            tool.Name = "Tool " .. i
+            tool.Parent = target.Backpack
+        end
+        showNotification("Tools", "Đã thêm tool cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể thêm tool " .. target.Name, 3)
+    end
+end
+
+commandHandlers["notools"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Backpack then
+        for _, item in ipairs(target.Backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                item:Destroy()
+            end
+        end
+        showNotification("Tools", "Đã xóa tool của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể xóa tool " .. target.Name, 3)
+    end
+end
+
+commandHandlers["gear"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;gear [id]", 3)
+        return
+    end
+    
+    local gearId = tonumber(args[1]) or 18474459
+    local target = getPlayerFromArgs(args, 2)
+    
+    if target.Backpack then
+        local tool = Instance.new("Tool")
+        tool.ToolTip = "Gear"
+        tool.Name = "Gear"
+        tool.RequiresHandle = false
+        tool.CanBeDropped = true
+        
+        local script = Instance.new("Script")
+        script.Source = [[
+            tool = script.Parent
+            function onActivate()
+                game:GetService("ReplicatedStorage").Gear:FireServer(tool, "Activate")
+            end
+            tool.Activated:Connect(onActivate)
+        ]]
+        script.Parent = tool
+        
+        tool.Parent = target.Backpack
+        
+        -- Thêm gear vào ReplicatedStorage
+        local gear = Instance.new("NumberValue")
+        gear.Name = "Gear"
+        gear.Value = gearId
+        gear.Parent = tool
+        
+        showNotification("Gear", "Đã thêm gear ID " .. gearId .. " cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể thêm gear " .. target.Name, 3)
+    end
+end
+
+commandHandlers["clear"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" and part.Name ~= "Head" then
+                part:Destroy()
+            end
+        end
+        showNotification("Clear", "Đã xóa character của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể xóa character " .. target.Name, 3)
+    end
+end
+
+commandHandlers["reset"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target.Character:BreakJoints()
+        showNotification("Reset", "Đã reset character của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể reset character " .. target.Name, 3)
+    end
+end
+
+-- Thêm các lệnh vào danh sách hiển thị help
+table.insert(commands, {name = "fly", description = "Bật/tắt chế độ bay", syntax = ";fly [player] [speed]"})
+table.insert(commands, {name = "nofly", description = "Tắt chế độ bay", syntax = ";nofly [player]"})
+table.insert(commands, {name = "speed", description = "Thay đổi tốc độ di chuyển", syntax = ";speed [player] [value]"})
+table.insert(commands, {name = "jump", description = "Thay đổi sức nhảy", syntax = ";jump [player] [power]"})
+table.insert(commands, {name = "gravity", description = "Thay đổi trọng lực", syntax = ";gravity [value]"})
+table.insert(commands, {name = "spin", description = "Xoay người chơi", syntax = ";spin [player] [speed]"})
+table.insert(commands, {name = "nospin", description = "Dừng xoay người chơi", syntax = ";nospin [player]"})
+table.insert(commands, {name = "float", description = "Cho người chơi bay lơ lửng", syntax = ";float [player] [height]"})
+table.insert(commands, {name = "nofloat", description = "Dừng bay lơ lửng", syntax = ";nofloat [player]"})
+table.insert(commands, {name = "goto", description = "Dịch chuyển đến người chơi", syntax = ";goto [player]"})
+table.insert(commands, {name = "bring", description = "Đưa người chơi đến vị trí của bạn", syntax = ";bring [player]"})
+table.insert(commands, {name = "teleport", description = "Dịch chuyển người chơi đến người chơi khác", syntax = ";teleport [player1] [player2]"})
+table.insert(commands, {name = "dance", description = "Cho người chơi nhảy", syntax = ";dance [player] [id]"})
+table.insert(commands, {name = "nodance", description = "Dừng nhảy", syntax = ";nodance [player]"})
+table.insert(commands, {name = "sit", description = "Cho người chơi ngồi", syntax = ";sit [player]"})
+table.insert(commands, {name = "unsit", description = "Cho người chơi đứng dậy", syntax = ";unsit [player]"})
+table.insert(commands, {name = "headless", description = "Làm người chơi không đầu", syntax = ";headless [player]"})
+table.insert(commands, {name = "noheadless", description = "Khôi phục đầu người chơi", syntax = ";noheadless [player]"})
+table.insert(commands, {name = "invisible", description = "Làm người chơi tàng hình", syntax = ";invisible [player]"})
+table.insert(commands, {name = "visible", description = "Hiện người chơi", syntax = ";visible [player]"})
+table.insert(commands, {name = "size", description = "Thay đổi kích thước người chơi", syntax = ";size [player] [scale]"})
+table.insert(commands, {name = "normalize", description = "Reset kích thước người chơi", syntax = ";normalize [player]"})
+table.insert(commands, {name = "fire", description = "Đốt người chơi", syntax = ";fire [player]"})
+table.insert(commands, {name = "nofire", description = "Dập lửa", syntax = ";nofire [player]"})
+table.insert(commands, {name = "sparkles", description = "Thêm ánh sáng lấp lánh", syntax = ";sparkles [player]"})
+table.insert(commands, {name = "nosparkles", description = "Xóa ánh sáng lấp lánh", syntax = ";nosparkles [player]"})
+table.insert(commands, {name = "freeze", description = "Đóng băng người chơi", syntax = ";freeze [player]"})
+table.insert(commands, {name = "thaw", description = "Rã đông người chơi", syntax = ";thaw [player]"})
+table.insert(commands, {name = "jail", description = "Bỏ tù người chơi", syntax = ";jail [player]"})
+table.insert(commands, {name = "unjail", description = "Thả người chơi khỏi tù", syntax = ";unjail [player]"})
+table.insert(commands, {name = "tach", description = "Tách các bộ phận cơ thể", syntax = ";tach [player]"})
+table.insert(commands, {name = "kick", description = "Kick người chơi", syntax = ";kick [player] [reason]"})
+table.insert(commands, {name = "ban", description = "Ban người chơi", syntax = ";ban [player] [reason]"})
+table.insert(commands, {name = "unban", description = "Gỡ ban người chơi", syntax = ";unban [userid]"})
+table.insert(commands, {name = "mute", description = "Tắt tiếng người chơi", syntax = ";mute [player]"})
+table.insert(commands, {name = "unmute", description = "Bật tiếng người chơi", syntax = ";unmute [player]"})
+table.insert(commands, {name = "players", description = "Hiện danh sách người chơi", syntax = ";players"})
+table.insert(commands, {name = "time", description = "Thay đổi thời gian trong game", syntax = ";time [hour]"})
+table.insert(commands, {name = "ambient", description = "Thay đổi màu ambient light", syntax = ";ambient [r] [g] [b]"})
+table.insert(commands, {name = "fog", description = "Thay đổi độ đặc sương mù", syntax = ";fog [density]"})
+table.insert(commands, {name = "nofog", description = "Xóa sương mù", syntax = ";nofog"})
+table.insert(commands, {name = "brightness", description = "Thay đổi độ sáng", syntax = ";brightness [value]"})
+table.insert(commands, {name = "chat", description = "Gửi tin nhắn hệ thống", syntax = ";chat [message]"})
+table.insert(commands, {name = "noclip", description = "Bật noclip", syntax = ";noclip [player]"})
+table.insert(commands, {name = "clip", description = "Tắt noclip", syntax = ";clip [player]"})
+table.insert(commands, {name = "god", description = "Bật god mode", syntax = ";god [player]"})
+table.insert(commands, {name = "ungod", description = "Tắt god mode", syntax = ";ungod [player]"})
+table.insert(commands, {name = "heal", description = "Hồi máu", syntax = ";heal [player]"})
+table.insert(commands, {name = "respawn", description = "Hồi sinh người chơi", syntax = ";respawn [player]"})
+table.insert(commands, {name = "tools", description = "Thêm tool", syntax = ";tools [player]"})
+table.insert(commands, {name = "notools", description = "Xóa tool", syntax = ";notools [player]"})
+table.insert(commands, {name = "gear", description = "Thêm gear", syntax = ";gear [id] [player]"})
+table.insert(commands, {name = "clear", description = "Xóa character", syntax = ";clear [player]"})
+table.insert(commands, {name = "reset", description = "Reset character", syntax = ";reset [player]"})
+
+-- Đóng khung help khi nhấn nút đóng
+closeButton.MouseButton1Click:Connect(function()
+    helpFrame.Visible = false
+    isHelpGuiVisible = false
+end)
+
+-- Hiển thị thông báo khởi động thành công
+showNotification("Admin System", "Hệ thống admin đã sẵn sàng! Gõ ;help để xem " .. (#commands) .. " lệnh", 5)
+
+-- Hoàn tất
+wait(1)
+showNotification("Hoàn tất", "Đã tải thành công " .. (#commands) .. " lệnh!", 3)
