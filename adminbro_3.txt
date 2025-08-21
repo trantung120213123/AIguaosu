@@ -1,0 +1,794 @@
+--[[ 
+    Executor Admin System - Phiên bản Console Help
+    30 lệnh đa dạng và phong phú
+]]
+
+-- Khởi tạo các dịch vụ cần thiết
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local Debris = game:GetService("Debris")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Ngăn chặn script chạy lại
+if _G.AdminScriptLoaded then return end
+_G.AdminScriptLoaded = true
+
+-- Bảng lưu trữ trạng thái của người chơi
+local playerStates = {}
+
+-- =================================================================================
+-- PHẦN GUI THÔNG BÁO HIỆN ĐẠI
+-- =================================================================================
+
+local notifications = {}
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdminSystemGUI"
+screenGui.Parent = CoreGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local notificationTemplate = Instance.new("Frame")
+notificationTemplate.Name = "NotificationTemplate"
+notificationTemplate.BackgroundTransparency = 1
+notificationTemplate.Size = UDim2.new(0, 300, 0, 80)
+notificationTemplate.Position = UDim2.new(1, -320, 1, -100)
+notificationTemplate.ClipsDescendants = false
+
+local bgFrame = Instance.new("Frame")
+bgFrame.Name = "Background"
+bgFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+bgFrame.BorderSizePixel = 0
+bgFrame.Size = UDim2.new(1, 0, 1, 0)
+bgFrame.Parent = notificationTemplate
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = bgFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(40, 40, 60)
+stroke.Thickness = 1
+stroke.Parent = bgFrame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 60, 80)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+}
+gradient.Rotation = 90
+gradient.Parent = bgFrame
+
+local progressBar = Instance.new("Frame")
+progressBar.Name = "ProgressBar"
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+progressBar.BorderSizePixel = 0
+progressBar.Size = UDim2.new(0, 0, 0, 3)
+progressBar.Position = UDim2.new(0, 0, 1, 0)
+progressBar.Parent = bgFrame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 15)
+padding.PaddingRight = UDim.new(0, 15)
+padding.PaddingTop = UDim.new(0, 10)
+padding.PaddingBottom = UDim.new(0, 10)
+padding.Parent = bgFrame
+
+local contentLayout = Instance.new("UIListLayout")
+contentLayout.Padding = UDim.new(0, 5)
+contentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+contentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+contentLayout.Parent = bgFrame
+
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Text = "Notification"
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Parent = bgFrame
+
+local message = Instance.new("TextLabel")
+message.Name = "Message"
+message.Text = "This is a notification message"
+message.Font = Enum.Font.Gotham
+message.TextColor3 = Color3.fromRGB(200, 200, 200)
+message.TextSize = 14
+message.TextXAlignment = Enum.TextXAlignment.Left
+message.TextYAlignment = Enum.TextYAlignment.Top
+message.TextWrapped = true
+message.BackgroundTransparency = 1
+message.Size = UDim2.new(1, 0, 1, -25)
+message.Parent = bgFrame
+
+-- Hàm hiển thị thông báo
+local function showNotification(titleText, messageText, duration)
+    duration = duration or 5
+    local notification = notificationTemplate:Clone()
+    notification.Name = "Notification_" .. HttpService:GenerateGUID(false)
+    notification.Parent = screenGui
+    
+    local titleLabel = notification.Background.Title
+    local messageLabel = notification.Background.Message
+    local progressBar = notification.Background.ProgressBar
+    
+    titleLabel.Text = titleText
+    messageLabel.Text = messageText
+    
+    notification.Position = UDim2.new(1, -320, 1, 100)
+    
+    local enterTween = TweenService:Create(
+        notification,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(1, -320, 1, -100 - (#notifications * 90))}
+    )
+    
+    table.insert(notifications, notification)
+    
+    enterTween:Play()
+    
+    for i, notif in ipairs(notifications) do
+        local tween = TweenService:Create(
+            notif,
+            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+        )
+        tween:Play()
+    end
+    
+    local progressTween = TweenService:Create(
+        progressBar,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, 0, 0, 3)}
+    )
+    progressTween:Play()
+    
+    delay(duration, function()
+        if notification and notification.Parent then
+            local exitTween = TweenService:Create(
+                notification,
+                TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                {Position = UDim2.new(1, -320, 1, 100)}
+            )
+            exitTween:Play()
+            
+            exitTween.Completed:Connect(function()
+                if notification and notification.Parent then
+                    notification:Destroy()
+                    for i, notif in ipairs(notifications) do
+                        if notif == notification then
+                            table.remove(notifications, i)
+                            break
+                        end
+                    end
+                    for i, notif in ipairs(notifications) do
+                        local tween = TweenService:Create(
+                            notif,
+                            TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                            {Position = UDim2.new(1, -320, 1, -100 - ((i-1) * 90))}
+                        )
+                        tween:Play()
+                    end
+                end
+            end)
+        end
+    end)
+    
+    return notification
+end
+
+-- =================================================================================
+-- HỆ THỐNG LỆNH VÀ XỬ LÝ CHAT
+-- =================================================================================
+
+-- Bảng lưu trữ lệnh và mô tả
+local commands = {
+    {
+        name = "help",
+        description = "Hiển thị danh sách lệnh",
+        syntax = ";help"
+    }
+}
+
+-- Bảng lưu trữ hàm thực thi lệnh
+local commandHandlers = {}
+
+-- Hàm xử lý tin nhắn
+local function onChatMessage(message, speaker)
+    if string.sub(message, 1, 1) == ";" then
+        local args = string.split(message, " ")
+        local commandName = string.sub(args[1], 2):lower()
+        
+        table.remove(args, 1)
+        
+        if commandHandlers[commandName] then
+            commandHandlers[commandName](speaker, args)
+        else
+            showNotification("Lỗi", "Lệnh không tồn tại: " .. commandName, 3)
+        end
+        return true
+    end
+    return false
+end
+
+-- Kết nối sự kiện chat
+for _, player in ipairs(Players:GetPlayers()) do
+    player.Chatted:Connect(function(message)
+        onChatMessage(message, player)
+    end)
+end
+
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    player.Chatted:Connect(function(message)
+        onChatMessage(message, player)
+    end)
+end)
+
+-- Xử lý cho người chơi local
+player.Chatted:Connect(function(message)
+    onChatMessage(message, player)
+end)
+
+-- Hàm tìm người chơi
+local function findPlayer(name)
+    if not name or name == "me" or name == "" then return player end
+    name = name:lower()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name:lower():find(name) == 1 or p.DisplayName:lower():find(name) == 1 then
+            return p
+        end
+    end
+    return nil
+end
+
+-- Hàm tìm người chơi từ args
+local function getPlayerFromArgs(args, index)
+    index = index or 1
+    if #args >= index then
+        return findPlayer(args[index])
+    end
+    return player
+end
+
+-- =================================================================================
+-- ĐỊNH NGHĨA 30 LỆNH PHỔ BIẾN
+-- =================================================================================
+
+-- Lệnh help
+commandHandlers["help"] = function(speaker, args)
+    print("===== DANH SÁCH LỆNH ADMIN =====")
+    for _, cmd in ipairs(commands) do
+        print(cmd.syntax .. " - " .. cmd.description)
+    end
+    print("================================")
+    showNotification("Help", "Đã hiển thị danh sách lệnh trong console (F9)", 5)
+end
+
+-- Lệnh fly
+commandHandlers["fly"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 50
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có fly effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].flying then
+            playerStates[target.Name].flying:Disconnect()
+            playerStates[target.Name].flying = nil
+            target.Character.Humanoid.PlatformStand = false
+            showNotification("Fly", "Đã tắt bay cho " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng bay
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].flying = RunService.Heartbeat:Connect(function()
+            if root and root.Parent then
+                target.Character.Humanoid.PlatformStand = true
+                local velocity = Vector3.new(0, 0, 0)
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    velocity = velocity + (root.CFrame.LookVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    velocity = velocity + (root.CFrame.LookVector * -speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    velocity = velocity + (root.CFrame.RightVector * -speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    velocity = velocity + (root.CFrame.RightVector * speed)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    velocity = velocity + (Vector3.new(0, speed, 0))
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    velocity = velocity + (Vector3.new(0, -speed, 0))
+                end
+                
+                root.Velocity = velocity
+            else
+                if playerStates[target.Name] and playerStates[target.Name].flying then
+                    playerStates[target.Name].flying:Disconnect()
+                    playerStates[target.Name].flying = nil
+                end
+            end
+        end)
+        
+        showNotification("Fly", "Đã bật bay cho " .. target.Name .. " tốc độ " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể bay " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nofly"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].flying then
+        playerStates[target.Name].flying:Disconnect()
+        playerStates[target.Name].flying = nil
+        if target.Character and target.Character:FindFirstChild("Humanoid") then
+            target.Character.Humanoid.PlatformStand = false
+        end
+        showNotification("Fly", "Đã tắt bay cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang bay", 3)
+    end
+end
+
+commandHandlers["speed"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 16
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.WalkSpeed = speed
+        showNotification("Speed", "Đặt tốc độ " .. target.Name .. " thành " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể đặt tốc độ " .. target.Name, 3)
+    end
+end
+
+commandHandlers["jump"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local power = tonumber(args[2]) or 50
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.JumpPower = power
+        showNotification("Jump", "Đặt sức nhảy " .. target.Name .. " thành " .. power, 3)
+    else
+        showNotification("Lỗi", "Không thể đặt sức nhảy " .. target.Name, 3)
+    end
+end
+
+commandHandlers["gravity"] = function(speaker, args)
+    local gravity = tonumber(args[1]) or 196.2
+    Workspace.Gravity = gravity
+    showNotification("Gravity", "Đặt trọng lực thành " .. gravity, 3)
+end
+
+commandHandlers["spin"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local speed = tonumber(args[2]) or 10
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local root = target.Character.HumanoidRootPart
+        
+        -- Kiểm tra xem đã có spin effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].spinning then
+            playerStates[target.Name].spinning:Disconnect()
+            playerStates[target.Name].spinning = nil
+            showNotification("Spin", "Đã dừng xoay " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng xoay
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].spinning = RunService.Heartbeat:Connect(function()
+            if root and root.Parent then
+                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(speed), 0)
+            else
+                if playerStates[target.Name] and playerStates[target.Name].spinning then
+                    playerStates[target.Name].spinning:Disconnect()
+                    playerStates[target.Name].spinning = nil
+                end
+            end
+        end)
+        
+        showNotification("Spin", "Đang xoay " .. target.Name .. " với tốc độ " .. speed, 3)
+    else
+        showNotification("Lỗi", "Không thể xoay " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nospin"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].spinning then
+        playerStates[target.Name].spinning:Disconnect()
+        playerStates[target.Name].spinning = nil
+        showNotification("Spin", "Đã dừng xoay " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang xoay", 3)
+    end
+end
+
+commandHandlers["goto"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and
+       player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+        showNotification("Goto", "Đã dịch chuyển đến " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dịch chuyển đến " .. target.Name, 3)
+    end
+end
+
+commandHandlers["bring"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and
+       player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        target.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+        showNotification("Bring", "Đã đưa " .. target.Name .. " đến vị trí của bạn", 3)
+    else
+        showNotification("Lỗi", "Không thể đưa " .. target.Name .. " đến vị trí của bạn", 3)
+    end
+end
+
+commandHandlers["sit"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Sit = true
+        showNotification("Sit", "Đã cho " .. target.Name .. " ngồi xuống", 3)
+    else
+        showNotification("Lỗi", "Không thể cho " .. target.Name .. " ngồi", 3)
+    end
+end
+
+commandHandlers["unsit"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Sit = false
+        showNotification("Sit", "Đã cho " .. target.Name .. " đứng dậy", 3)
+    else
+        showNotification("Lỗi", "Không thể cho " .. target.Name .. " đứng dậy", 3)
+    end
+end
+
+commandHandlers["invisible"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 1
+            end
+        end
+        showNotification("Invisible", "Đã làm " .. target.Name .. " tàng hình", 3)
+    else
+        showNotification("Lỗi", "Không thể làm " .. target.Name .. " tàng hình", 3)
+    end
+end
+
+commandHandlers["visible"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+            end
+        end
+        showNotification("Invisible", "Đã hiện " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hiện " .. target.Name, 3)
+    end
+end
+
+commandHandlers["size"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    local scale = tonumber(args[2]) or 2
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Size = part.Size * scale
+            end
+        end
+        showNotification("Size", "Đã thay đổi kích thước " .. target.Name .. " với tỷ lệ " .. scale, 3)
+    else
+        showNotification("Lỗi", "Không thể thay đổi kích thước " .. target.Name, 3)
+    end
+end
+
+commandHandlers["normalize"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target.Character:BreakJoints()
+        showNotification("Normalize", "Đã reset kích thước " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể reset kích thước " .. target.Name, 3)
+    end
+end
+
+commandHandlers["fire"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local fire = Instance.new("Fire")
+        fire.Size = 10
+        fire.Parent = target.Character.HumanoidRootPart
+        showNotification("Fire", "Đã đốt " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể đốt " .. target.Name, 3)
+    end
+end
+
+commandHandlers["nofire"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        for _, fire in ipairs(target.Character.HumanoidRootPart:GetChildren()) do
+            if fire:IsA("Fire") then
+                fire:Destroy()
+            end
+        end
+        showNotification("Fire", "Đã dập lửa " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể dập lửa " .. target.Name, 3)
+    end
+end
+
+commandHandlers["freeze"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = true
+            end
+        end
+        showNotification("Freeze", "Đã đóng băng " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể đóng băng " .. target.Name, 3)
+    end
+end
+
+commandHandlers["thaw"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Anchored = false
+            end
+        end
+        showNotification("Freeze", "Đã rã đông " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể rã đông " .. target.Name, 3)
+    end
+end
+
+commandHandlers["tach"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        for _, part in ipairs(target.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Velocity = Vector3.new(
+                    math.random(-100, 100),
+                    math.random(50, 100),
+                    math.random(-100, 100)
+                )
+            end
+        end
+        showNotification("Tach", "Đã tách các bộ phận của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể tách " .. target.Name, 3)
+    end
+end
+
+commandHandlers["kick"] = function(speaker, args)
+    if #args < 1 then
+        showNotification("Lỗi", "Sử dụng: ;kick [người chơi] [lý do]", 3)
+        return
+    end
+    
+    local target = findPlayer(args[1])
+    local reason = #args >= 2 and table.concat(args, " ", 2) or "Bị kick bởi admin"
+    
+    if target then
+        if target == player then
+            showNotification("Lỗi", "Bạn không thể kick chính mình", 3)
+            return
+        end
+        
+        showNotification("Kick", "Đã kick " .. target.Name .. " với lý do: " .. reason, 3)
+        target:Kick(reason)
+    else
+        showNotification("Lỗi", "Không tìm thấy người chơi", 3)
+    end
+end
+
+commandHandlers["players"] = function(speaker, args)
+    local playerList = ""
+    for _, p in ipairs(Players:GetPlayers()) do
+        playerList = playerList .. p.Name .. ", "
+    end
+    playerList = string.sub(playerList, 1, -3) -- Xóa dấu phẩy cuối cùng
+    
+    showNotification("Players", "Người chơi trong server: " .. playerList, 5)
+end
+
+commandHandlers["time"] = function(speaker, args)
+    local time = tonumber(args[1]) or 12
+    Lighting.ClockTime = time
+    showNotification("Time", "Đã đặt thời gian thành " .. time, 3)
+end
+
+commandHandlers["noclip"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        -- Kiểm tra xem đã có noclip effect chưa
+        if playerStates[target.Name] and playerStates[target.Name].noclip then
+            playerStates[target.Name].noclip:Disconnect()
+            playerStates[target.Name].noclip = nil
+            showNotification("Noclip", "Đã tắt noclip cho " .. target.Name, 3)
+            return
+        end
+        
+        -- Tạo hiệu ứng noclip
+        playerStates[target.Name] = playerStates[target.Name] or {}
+        playerStates[target.Name].noclip = RunService.Stepped:Connect(function()
+            if target.Character then
+                for _, part in ipairs(target.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            else
+                if playerStates[target.Name] and playerStates[target.Name].noclip then
+                    playerStates[target.Name].noclip:Disconnect()
+                    playerStates[target.Name].noclip = nil
+                end
+            end
+        end)
+        
+        showNotification("Noclip", "Đã bật noclip cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể bật noclip " .. target.Name, 3)
+    end
+end
+
+commandHandlers["clip"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if playerStates[target.Name] and playerStates[target.Name].noclip then
+        playerStates[target.Name].noclip:Disconnect()
+        playerStates[target.Name].noclip = nil
+        
+        if target.Character then
+            for _, part in ipairs(target.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+        
+        showNotification("Noclip", "Đã tắt noclip cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", target.Name .. " không đang noclip", 3)
+    end
+end
+
+commandHandlers["god"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.MaxHealth = math.huge
+        target.Character.Humanoid.Health = math.huge
+        showNotification("God", "Đã bật god mode cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể bật god mode " .. target.Name, 3)
+    end
+end
+
+commandHandlers["ungod"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.MaxHealth = 100
+        target.Character.Humanoid.Health = 100
+        showNotification("God", "Đã tắt god mode cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể tắt god mode " .. target.Name, 3)
+    end
+end
+
+commandHandlers["heal"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character and target.Character:FindFirstChild("Humanoid") then
+        target.Character.Humanoid.Health = target.Character.Humanoid.MaxHealth
+        showNotification("Heal", "Đã hồi máu cho " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hồi máu " .. target.Name, 3)
+    end
+end
+
+commandHandlers["respawn"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target:LoadCharacter()
+        showNotification("Respawn", "Đã hồi sinh " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể hồi sinh " .. target.Name, 3)
+    end
+end
+
+commandHandlers["reset"] = function(speaker, args)
+    local target = getPlayerFromArgs(args)
+    
+    if target.Character then
+        target.Character:BreakJoints()
+        showNotification("Reset", "Đã reset character của " .. target.Name, 3)
+    else
+        showNotification("Lỗi", "Không thể reset character " .. target.Name, 3)
+    end
+end
+
+-- Thêm các lệnh vào danh sách hiển thị help
+table.insert(commands, {name = "fly", description = "Bật/tắt chế độ bay", syntax = ";fly [player] [speed]"})
+table.insert(commands, {name = "nofly", description = "Tắt chế độ bay", syntax = ";nofly [player]"})
+table.insert(commands, {name = "speed", description = "Thay đổi tốc độ di chuyển", syntax = ";speed [player] [value]"})
+table.insert(commands, {name = "jump", description = "Thay đổi sức nhảy", syntax = ";jump [player] [power]"})
+table.insert(commands, {name = "gravity", description = "Thay đổi trọng lực", syntax = ";gravity [value]"})
+table.insert(commands, {name = "spin", description = "Xoay người chơi", syntax = ";spin [player] [speed]"})
+table.insert(commands, {name = "nospin", description = "Dừng xoay người chơi", syntax = ";nospin [player]"})
+table.insert(commands, {name = "goto", description = "Dịch chuyển đến người chơi", syntax = ";goto [player]"})
+table.insert(commands, {name = "bring", description = "Đưa người chơi đến vị trí của bạn", syntax = ";bring [player]"})
+table.insert(commands, {name = "sit", description = "Cho người chơi ngồi", syntax = ";sit [player]"})
+table.insert(commands, {name = "unsit", description = "Cho người chơi đứng dậy", syntax = ";unsit [player]"})
+table.insert(commands, {name = "invisible", description = "Làm người chơi tàng hình", syntax = ";invisible [player]"})
+table.insert(commands, {name = "visible", description = "Hiện người chơi", syntax = ";visible [player]"})
+table.insert(commands, {name = "size", description = "Thay đổi kích thước người chơi", syntax = ";size [player] [scale]"})
+table.insert(commands, {name = "normalize", description = "Reset kích thước người chơi", syntax = ";normalize [player]"})
+table.insert(commands, {name = "fire", description = "Đốt người chơi", syntax = ";fire [player]"})
+table.insert(commands, {name = "nofire", description = "Dập lửa", syntax = ";nofire [player]"})
+table.insert(commands, {name = "freeze", description = "Đóng băng người chơi", syntax = ";freeze [player]"})
+table.insert(commands, {name = "thaw", description = "Rã đông người chơi", syntax = ";thaw [player]"})
+table.insert(commands, {name = "tach", description = "Tách các bộ phận cơ thể", syntax = ";tach [player]"})
+table.insert(commands, {name = "kick", description = "Kick người chơi", syntax = ";kick [player] [reason]"})
+table.insert(commands, {name = "players", description = "Hiện danh sách người chơi", syntax = ";players"})
+table.insert(commands, {name = "time", description = "Thay đổi thời gian trong game", syntax = ";time [hour]"})
+table.insert(commands, {name = "noclip", description = "Bật noclip", syntax = ";noclip [player]"})
+table.insert(commands, {name = "clip", description = "Tắt noclip", syntax = ";clip [player]"})
+table.insert(commands, {name = "god", description = "Bật god mode", syntax = ";god [player]"})
+table.insert(commands, {name = "ungod", description = "Tắt god mode", syntax = ";ungod [player]"})
+table.insert(commands, {name = "heal", description = "Hồi máu", syntax = ";heal [player]"})
+table.insert(commands, {name = "respawn", description = "Hồi sinh người chơi", syntax = ";respawn [player]"})
+table.insert(commands, {name = "reset", description = "Reset character", syntax = ";reset [player]"})
+
+-- Hiển thị thông báo khởi động thành công
+showNotification("Admin System", "Hệ thống admin đã sẵn sàng! Gõ ;help để xem " .. (#commands) .. " lệnh", 5)
+
+-- Hoàn tất
+wait(1)
+showNotification("Hoàn tất", "Đã tải thành công " .. (#commands) .. " lệnh!", 3)
