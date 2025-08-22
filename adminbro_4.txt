@@ -1,0 +1,472 @@
+-- Admin Chat System by Roblox Executor
+-- Đặt script này trong LocalScript hoặc Executor
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Biến lưu trữ trạng thái
+local states = {
+    flying = false,
+    noclip = false,
+    godmode = false,
+    originalWalkspeed = 16,
+    originalJumppower = 50,
+    originalGravity = workspace.Gravity
+}
+
+-- Bảng lệnh và mô tả
+local commands = {
+    [":vangtay"] = {
+        description = "Biểu tượng vỗ tay",
+        func = function(args)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("👏 Vỗ tay nào! 👏", "All")
+        end
+    },
+    [":wave"] = {
+        description = "Biểu tượng vẫy tay",
+        func = function(args)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("👋 Xin chào mọi người! 👋", "All")
+        end
+    },
+    [":fire"] = {
+        description = "Biểu tượng lửa",
+        func = function(args)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("🔥🔥🔥", "All")
+        end
+    },
+    [":heart"] = {
+        description = "Biểu tượng trái tim",
+        func = function(args)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("❤️ Yêu thương ❤️", "All")
+        end
+    },
+    [":star"] = {
+        description = "Biểu tượng ngôi sao",
+        func = function(args)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("⭐ Ngôi sao ⭐", "All")
+        end
+    },
+    [";help"] = {
+        description = "Hiển thị tất cả lệnh",
+        func = function(args)
+            local helpMessage = "📖 DANH SÁCH LỆNH ADMIN:\n"
+            for cmd, info in pairs(commands) do
+                helpMessage ..= cmd .. " - " .. info.description .. "\n"
+            end
+            print(helpMessage)
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Đã gửi danh sách lệnh đến console!", "All")
+        end
+    },
+    [";spin"] = {
+        description = "Xoay nhân vật",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                if humanoidRootPart then
+                    for i = 1, 360, 10 do
+                        humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(10), 0)
+                        wait()
+                    end
+                end
+            end
+        end
+    },
+    [";unspin"] = {
+        description = "Dừng xoay nhân vật",
+        func = function(args)
+            -- Không cần làm gì vì spin chỉ chạy một lần
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Đã dừng xoay!", "All")
+        end
+    },
+    [";fly"] = {
+        description = "Bật chế độ bay",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    states.flying = true
+                    local bodyVelocity = Instance.new("BodyVelocity")
+                    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+                    bodyVelocity.Parent = humanoid.RootPart
+                    
+                    while states.flying and humanoid and humanoid.Parent do
+                        bodyVelocity.Velocity = Vector3.new(0, 30, 0)
+                        wait()
+                    end
+                    
+                    bodyVelocity:Destroy()
+                end
+            end
+        end
+    },
+    [";unfly"] = {
+        description = "Tắt chế độ bay",
+        func = function(args)
+            states.flying = false
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Đã tắt chế độ bay!", "All")
+        end
+    },
+    [";speed"] = {
+        description = "Thay đổi tốc độ (;speed 50)",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid and args[1] then
+                    states.originalWalkspeed = humanoid.WalkSpeed
+                    humanoid.WalkSpeed = tonumber(args[1]) or 16
+                end
+            end
+        end
+    },
+    [";unspeed"] = {
+        description = "Đặt lại tốc độ mặc định",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.WalkSpeed = states.originalWalkspeed
+                end
+            end
+        end
+    },
+    [";jump"] = {
+        description = "Thay đổi độ cao nhảy (;jump 100)",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid and args[1] then
+                    states.originalJumppower = humanoid.JumpPower
+                    humanoid.JumpPower = tonumber(args[1]) or 50
+                end
+            end
+        end
+    },
+    [";unjump"] = {
+        description = "Đặt lại độ cao nhảy mặc định",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.JumpPower = states.originalJumppower
+                end
+            end
+        end
+    },
+    [";gravity"] = {
+        description = "Thay đổi trọng lực (;gravity 50)",
+        func = function(args)
+            if args[1] then
+                states.originalGravity = workspace.Gravity
+                workspace.Gravity = tonumber(args[1]) or 196.2
+            end
+        end
+    },
+    [";ungravity"] = {
+        description = "Đặt lại trọng lực mặc định",
+        func = function(args)
+            workspace.Gravity = states.originalGravity
+        end
+    },
+    [";time"] = {
+        description = "Thay đổi thời gian (;time 12)",
+        func = function(args)
+            if args[1] then
+                game:GetService("Lighting").ClockTime = tonumber(args[1]) or 12
+            end
+        end
+    },
+    [";untime"] = {
+        description = "Đặt lại thời gian mặc định (12)",
+        func = function(args)
+            game:GetService("Lighting").ClockTime = 12
+        end
+    },
+    [";god"] = {
+        description = "Bật chế độ bất tử",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    states.godmode = true
+                    humanoid.MaxHealth = math.huge
+                    humanoid.Health = math.huge
+                end
+            end
+        end
+    },
+    [";ungod"] = {
+        description = "Tắt chế độ bất tử",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    states.godmode = false
+                    humanoid.MaxHealth = 100
+                    humanoid.Health = 100
+                end
+            end
+        end
+    },
+    [";kill"] = {
+        description = "Tự sát",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                end
+            end
+        end
+    },
+    [";heal"] = {
+        description = "Hồi máu",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Health = humanoid.MaxHealth
+                end
+            end
+        end
+    },
+    [";ff"] = {
+        description = "Bật ForceField",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local ff = Instance.new("ForceField")
+                ff.Parent = character
+            end
+        end
+    },
+    [";unff"] = {
+        description = "Tắt ForceField",
+        func = function(args)
+            local character = player.Character
+            if character then
+                for _, item in ipairs(character:GetChildren()) do
+                    if item:IsA("ForceField") then
+                        item:Destroy()
+                    end
+                end
+            end
+        end
+    },
+    [";tools"] = {
+        description = "Nhận tất cả tool",
+        func = function(args)
+            for _, tool in ipairs(game:GetService("ReplicatedStorage"):GetChildren()) do
+                if tool:IsA("Tool") then
+                    tool:Clone().Parent = player.Backpack
+                end
+            end
+        end
+    },
+    [";hats"] = {
+        description = "Nhận tất cả phụ kiện",
+        func = function(args)
+            for _, acc in ipairs(game:GetService("ReplicatedStorage"):GetChildren()) do
+                if acc:IsA("Accessory") then
+                    acc:Clone().Parent = player.Character
+                end
+            end
+        end
+    },
+    [";clear"] = {
+        description = "Xóa tất cả tool",
+        func = function(args)
+            for _, item in ipairs(player.Backpack:GetChildren()) do
+                item:Destroy()
+            end
+            for _, item in ipairs(player.Character:GetChildren()) do
+                if item:IsA("Tool") or item:IsA("Accessory") then
+                    item:Destroy()
+                end
+            end
+        end
+    },
+    [";invisible"] = {
+        description = "Ẩn hình",
+        func = function(args)
+            local character = player.Character
+            if character then
+                for _, part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 1
+                    end
+                end
+            end
+        end
+    },
+    [";uninvisible"] = {
+        description = "Hiện hình",
+        func = function(args)
+            local character = player.Character
+            if character then
+                for _, part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 0
+                    end
+                end
+            end
+        end
+    },
+    [";size"] = {
+        description = "Thay đổi kích thước (;size 5)",
+        func = function(args)
+            local character = player.Character
+            if character then
+                local scale = tonumber(args[1]) or 1
+                for _, part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Size = part.Size * scale
+                    end
+                end
+            end
+        end
+    },
+    [";unsize"] = {
+        description = "Đặt lại kích thước mặc định",
+        func = function(args)
+            local character = player.Character
+            if character then
+                -- Khôi phục nhân vật bằng cách respawn
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                    wait(2)
+                end
+            end
+        end
+    },
+    [";light"] = {
+        description = "Tạo điểm sáng",
+        func = function(args)
+            local character = player.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                local light = Instance.new("PointLight")
+                light.Brightness = 1
+                light.Range = 20
+                light.Parent = character.HumanoidRootPart
+            end
+        end
+    },
+    [";unlight"] = {
+        description = "Xóa điểm sáng",
+        func = function(args)
+            local character = player.Character
+            if character then
+                for _, item in ipairs(character.HumanoidRootPart:GetChildren()) do
+                    if item:IsA("PointLight") then
+                        item:Destroy()
+                    end
+                end
+            end
+        end
+    },
+    [";noclip"] = {
+        description = "Bật chế độ xuyên tường",
+        func = function(args)
+            states.noclip = true
+            local character = player.Character
+            if character then
+                game:GetService("RunService").Stepped:Connect(function()
+                    if states.noclip and character then
+                        for _, part in ipairs(character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    },
+    [";unnoclip"] = {
+        description = "Tắt chế độ xuyên tường",
+        func = function(args)
+            states.noclip = false
+            local character = player.Character
+            if character then
+                for _, part in ipairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+    },
+    [";tp"] = {
+        description = "Dịch chuyển đến người chơi (;tp username)",
+        func = function(args)
+            if args[1] then
+                local target = nil
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if string.lower(p.Name) == string.lower(args[1]) or string.lower(p.DisplayName) == string.lower(args[1]) then
+                        target = p
+                        break
+                    end
+                end
+                
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    player.Character:MoveTo(target.Character.HumanoidRootPart.Position)
+                end
+            end
+        end
+    },
+    [";announce"] = {
+        description = "Thông báo toàn server (;announce Xin chào!)",
+        func = function(args)
+            if #args > 0 then
+                local message = table.concat(args, " ")
+                game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("[THÔNG BÁO] " .. message, "All")
+            end
+        end
+    }
+}
+
+-- Hàm xử lý chat
+local function onChatted(message)
+    if string.sub(message, 1, 1) == ";" or string.sub(message, 1, 1) == ":" then
+        local args = {}
+        for word in string.gmatch(message, "%S+") do
+            table.insert(args, word)
+        end
+        
+        local command = args[1]
+        table.remove(args, 1)
+        
+        if commands[command] then
+            commands[command].func(args)
+        else
+            game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Lệnh không tồn tại! Gõ ;help để xem danh sách lệnh", "All")
+        end
+    end
+end
+
+-- Kết nối sự kiện chat
+player.Chatted:Connect(onChatted)
+
+-- Lưu giá trị gốc
+local character = player.Character or player.CharacterAdded:Wait()
+if character then
+    local humanoid = character:WaitForChild("Humanoid")
+    states.originalWalkspeed = humanoid.WalkSpeed
+    states.originalJumppower = humanoid.JumpPower
+end
+
+-- Thông báo khởi động
+print("🛠️ Admin Chat System đã được kích hoạt!")
+print("📝 Gõ ;help để xem danh sách lệnh")
+game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer("Admin system activated! Type ;help for commands", "All")
